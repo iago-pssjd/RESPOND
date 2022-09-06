@@ -14,7 +14,7 @@ if(Sys.info()["sysname"] == "Linux"){
 # Load libraries -----------------------------------------------------------
 library(haven) # using haven instead of readstata13, since it reads labels
 library(anytime)
-library(data.table)
+library(data.table) # under version at least 1.14.3
 library(openxlsx)
 
 
