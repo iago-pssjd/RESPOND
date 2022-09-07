@@ -27,7 +27,7 @@ db <- read_dta(paste0(data_add, "BBDD_FINAL.dta"))
 mobility20 <- fread(paste0(data_add, "2020_ES_Region_Mobility_Report.csv"), na.strings = c("NA", ""))
 mobility21 <- fread(paste0(data_add, "2021_ES_Region_Mobility_Report.csv"), na.strings = c("NA", ""))
 mobility22 <- fread(paste0(data_add, "2022_ES_Region_Mobility_Report.csv"), na.strings = c("NA", ""))
-stringency <- fread(paste0(data_add, "stringency.csv"))
+stringency <- fread(paste0(data_add, "stringency.csv"), na.strings = c("NA", ""))
 conversion <- read.xlsx(paste0(data_add, "conversió codis CCAA.xlsx"), cols = c(2,3))
 
 
@@ -76,6 +76,7 @@ setDT(db)
 #   zap_formats()
 
 db[, residence_w1 := as.character(fct_recode(as_factor(residence_w1), "-93" = "missing"))]
+
 ## merge conversion with db --------------------------------------------
 
 
@@ -128,12 +129,18 @@ setnames(dbl, old = c("Date"), new = c("date"))
 dbl[, date := as.Date(date)]
 dblclasses <- sapply(dbl |> zap_formats() |> zap_label() |> zap_labels() |> as.data.frame(), class)
 cols <- names(dblclasses[which(dblclasses %in% c("integer", "numeric"))])
-dbl[, lapply(.SD, nafill, fill = -93), .SDcols = cols]
+dbl[, c(cols) := lapply(.SD, nafill, fill = -93), .SDcols = cols]
+
+cols <- names(dblclasses[which(!dblclasses %in% c("integer", "numeric"))])
+dbl[, c(cols) := lapply(.SD, \(.x) fifelse(is.na(.x), "-93", as.character(.x))), .SDcols = cols]
+
 
 setcolorder(dbl, neworder = c(match(names(stringency)[2], names(dbl)):match(tail(names(stringency),1), names(dbl)),
                               match(names(mobility)[3], names(dbl)):match(tail(names(mobility),1), names(dbl))),
             after = length(dbl))
 setcolorder(dbl, c(key(dbl), "wave", "date", "weekno"))
+
+dbl <- dbl[, !c("date", "sub_region_1")]
 
 save(dbl, file = paste0(data_add, "../target/BBDD_long.rdata"))
 
@@ -142,3 +149,4 @@ save(dbl, file = paste0(data_add, "../target/BBDD_long.rdata"))
 
 # dbl[!is.na(date) & weekno == -93] |> print(topn=20, col.names = "top")
 # udbl <- unique(dbl[order(BASELINE_Respondent_Serial),.(BASELINE_Respondent_Serial, rid)])
+# lapply(cols,\(.x) table(dbl[[.x]], useNA = "always"))
