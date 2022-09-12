@@ -90,9 +90,9 @@ db[, `:=` (rid = sample.int(nrow(db)),
            date_w1 = as.IDate(paste(year_w1, BASELINE_CurrentMonth, BASELINE_CurrentDay, sep = "-")),
            date_w2 = as.IDate(fifelse(year_w2 == -93, NA_character_, paste(year_w2, CurrentMonth_w2, CurrentDay_w2, sep = "-"))),
            date_w3 = as.IDate(fifelse(year_w3 == -93, NA_character_, paste(year_w3, CurrentMonth_w3, CurrentDay_w3, sep = "-"))))]
-db <- db[, !c("BASELINE_CurrentMonth", "BASELINE_CurrentDay", "year_w1", 
-        "CurrentMonth_w2", "CurrentDay_w2", "year_w2", 
-        "CurrentMonth_w3", "CurrentDay_w3", "year_w3", 
+db <- db[, !c("BASELINE_CurrentMonth", "BASELINE_CurrentDay", 
+        "CurrentMonth_w2", "CurrentDay_w2",
+        "CurrentMonth_w3", "CurrentDay_w3",
         "Respondent_Serial_w2", "Respondent_Serial_w3",
         "Respondent_Serial_OLA2_w3")]
 
@@ -144,7 +144,10 @@ dbl <- dbl[, !c("date", "sub_region_1")]
 
 save(dbl, file = paste0(data_add, "../target/BBDD_long.rdata"))
 
-
+dbl <- dbl[, !c("BASELINE_Respondent_Serial")]
+setnames(dbl, "rid", "id")
+setcolorder(dbl, neworder = c("id", "wave", "year", "weekno"))
+fwrite(dbl, file = paste0(data_add, "../target/MINDCOVID.csv"))
 ## checks
 
 # dbl[!is.na(date) & weekno == -93] |> print(topn=20, col.names = "top")
