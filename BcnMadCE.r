@@ -11,11 +11,13 @@ if(Sys.info()["sysname"] == "Linux"){
   data_add <- paste0(data_add, "/")
 }
 
-library(data.table)
-library(matrixStats)
 library(ggplot2)
+library(car)
+library(systemfit)
+library(matrixStats)
+library(data.table)
 
-screening <- readLines(paste0(data_add, "BcnMadCE/BCN_Spain_export_20220906_v2.csv"))
+screening <- readLines(paste0(data_add, "BcnMadCE/BcnData/BCN_Spain_export_20220906_v2.csv"))
 # table(sapply(gregexpr(";", screening), length))
 # table(sapply(gregexpr(",", screening), length))
 # gregexpr(",", screening) |> unlist() |> table()
@@ -23,7 +25,7 @@ screening <- readLines(paste0(data_add, "BcnMadCE/BCN_Spain_export_20220906_v2.c
 screening <- fread(text = screening, sep = ";", na.strings = c("NA", ""), key = "Record Id")
 setnames(screening, \(.x) gsub("\\s", "_", .x))
 
-T1 <- readLines(paste0(data_add, "BcnMadCE/RESPOND WP4 T1_V2_enviada_CSV.csv"))
+T1 <- readLines(paste0(data_add, "BcnMadCE/BcnData/RESPOND WP4 T1_V2_enviada_CSV.csv"))
 # table(sapply(gregexpr(";", T1), length))
 # table(sapply(gregexpr(",", T1), length))
 # gregexpr(",", T1) |> unlist() |> table()
@@ -32,7 +34,7 @@ T1 <- fread(text = T1, sep = ";", na.strings = c("NA", ""), key = "Castor Record
 setnames(T1, \(.x) gsub("\\s", "_", .x))
 setnames(T1, "Survey_Completed_On", "t1_Survey_Completed_On")
 
-T2 <- readLines(paste0(data_add, "BcnMadCE/RESPOND WP4 T2_V2_enviada_CSV.csv"))
+T2 <- readLines(paste0(data_add, "BcnMadCE/BcnData/RESPOND WP4 T2_V2_enviada_CSV.csv"))
 # table(sapply(gregexpr(";", T2), length))
 # table(sapply(gregexpr(",", T2), length))
 # gregexpr(",", T2) |> unlist() |> table()
@@ -41,7 +43,7 @@ T2 <- fread(text = T2, sep = ";", na.strings = c("NA", ""), key = "Castor Record
 setnames(T2, \(.x) gsub("\\s", "_", .x))
 setnames(T2, "Survey_Completed_On", "t2_Survey_Completed_On")
 
-T3 <- readLines(paste0(data_add, "BcnMadCE/RESPOND WP4 T3_V2_enviada_CSV.csv"))
+T3 <- readLines(paste0(data_add, "BcnMadCE/BcnData/RESPOND WP4 T3_V2_enviada_CSV.csv"))
 # table(sapply(gregexpr(";", T3), length))
 # table(sapply(gregexpr(",", T3), length))
 # gregexpr(",", T3) |> unlist() |> table()
@@ -50,7 +52,7 @@ T3 <- fread(text = T3, sep = ";", na.strings = c("NA", ""), key = "Castor Record
 setnames(T3, \(.x) gsub("\\s", "_", .x))
 setnames(T3, "Survey_Completed_On", "t3_Survey_Completed_On")
 
-T4 <- readLines(paste0(data_add, "BcnMadCE/RESPOND WP4 T4_V2_enviada_CSV.csv"))
+T4 <- readLines(paste0(data_add, "BcnMadCE/BcnData/RESPOND WP4 T4_V2_enviada_CSV.csv"))
 # table(sapply(gregexpr(";", T4), length))
 # table(sapply(gregexpr(",", T4), length))
 # gregexpr(",", T4) |> unlist() |> table()
@@ -71,20 +73,26 @@ Tdata <- merge(T12, T34, all = TRUE)
 
 
 Tlong <- melt(Tdata, 
-            measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(.*)"))
+            measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(?<!t1_t[01]_)(.*)"))
 Tlong <- na.omit(Tlong, cols = "Survey_Completed_On")
 
-
-eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
-eTlong[, phq9 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^phq9_0\\d")
+Tlong[, phq9 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^phq9_0\\d")
        ][, gad7 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^gad7_\\d")
          ][, phq_ads := phq9 + gad7]
 
+
+eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
+
 eTlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c("phq_ads"), by = .(wave, Randomization_Group)] |> 
-  ggplot(aes(x = factor(wave), y = phq_ads, colour = Randomization_Group)) +
+  ggplot(aes(x = wave, y = phq_ads, colour = Randomization_Group)) +
   geom_line()
 
 na.omit(eTlong, cols = "phq_ads") |> 
   ggplot(aes(x = factor(wave), y = phq_ads, colour = Randomization_Group)) +
   stat_summary(aes(group = Randomization_Group), geom = "line", fun = mean) +
+  stat_summary(aes(group = Randomization_Group), geom = "point", fun = mean) +
   stat_boxplot(geom = "errorbar", position = "identity")
+
+
+table(Tlong$t1_soc_1)
+table(Tlong$t0_soc_12)
