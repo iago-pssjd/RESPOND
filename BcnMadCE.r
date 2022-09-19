@@ -76,9 +76,13 @@ Tlong <- melt(Tdata,
             measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(?<!t1_t[01]_)(.*)"))
 Tlong <- na.omit(Tlong, cols = "Survey_Completed_On")
 
-Tlong[, phq9 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^phq9_0\\d")
-       ][, gad7 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^gad7_\\d")
-         ][, phq_ads := phq9 + gad7]
+
+
+cols <- grep("^(phq9|gad7)_\\d+$", names(Tlong), value = TRUE, perl = TRUE)
+Tlong[, c(cols) := lapply(.SD, \(.x) .x - 1), .SDcols = cols
+      ][, phq9 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^phq9_0\\d")
+        ][, gad7 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^gad7_\\d")
+          ][, phq_ads := phq9 + gad7]
 
 
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
@@ -91,7 +95,8 @@ na.omit(eTlong, cols = "phq_ads") |>
   ggplot(aes(x = factor(wave), y = phq_ads, colour = Randomization_Group)) +
   stat_summary(aes(group = Randomization_Group), geom = "line", fun = mean) +
   stat_summary(aes(group = Randomization_Group), geom = "point", fun = mean) +
-  stat_boxplot(geom = "errorbar", position = "identity")
+  stat_boxplot(geom = "errorbar", position = "identity", width = 0.25) +
+  labs(x = "time")
 
 
 table(Tlong$t1_soc_1)
