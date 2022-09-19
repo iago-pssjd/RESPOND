@@ -44,7 +44,7 @@ scmetadata <- merge(scitems, fields, all = FALSE, by.x = "Optiongroup name", by.
 metadata <- merge(items, fields, all = FALSE, by.x = "Optiongroup name", by.y = "Option group name", allow.cartesian = TRUE)
 
 
-# Data loading ------------------------------------------------------------
+# Bcn data recoding ------------------------------------------------------------
 
 
 ## screening ---------------------------------------------------------------
@@ -217,7 +217,7 @@ fwrite(T4, file = paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T4_V3
 
 
 
-# Re-loading --------------------------------------------------------------
+# Bcn data loading --------------------------------------------------------------
 
 T1 <- fread(paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T1_V3_enviada_CSV.csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
 T2 <- fread(paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T2_V3_enviada_CSV.csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
@@ -225,7 +225,11 @@ T3 <- fread(paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T3_V3_envia
 T4 <- fread(paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T4_V3_enviada_CSV.csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
 
 
-
+Mscreening <- fread(paste0(data_add, "BcnMadCE/MadData/RESPOND_-_Spain_export_20220919.csv"), sep = ";", na.strings = c("NA", ""), key = "Participant Id")
+MT1 <- fread(paste0(data_add, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T1_export_20220818(1).csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
+MT2 <- fread(paste0(data_add, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T2_export_20220818(1).csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
+MT3 <- fread(paste0(data_add, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T3_export_20220818(1).csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
+MT4 <- fread(paste0(data_add, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T4_export_20220818(1).csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
 
 
 
@@ -245,15 +249,40 @@ setnames(T4, \(.x) gsub("\\s", "_", .x))
 setnames(T4, "Survey_Completed_On", "t4_Survey_Completed_On")
 
 
+setnames(Mscreening, \(.x) gsub("V", "X", .x))
+setnames(Mscreening, \(.x) gsub("Site", "Institute", .x))
+setnames(Mscreening, \(.x) gsub("Participant", "Record", .x))
+setnames(Mscreening, \(.x) gsub("\\s", "_", .x))
+setnames(MT1, \(.x) gsub("\\s", "_", .x))
+setnames(MT1, "Survey_Completed_On", "t1_Survey_Completed_On")
+setnames(MT2, \(.x) gsub("\\s", "_", .x))
+setnames(MT2, "Survey_Completed_On", "t2_Survey_Completed_On")
+setnames(MT3, \(.x) gsub("\\s", "_", .x))
+setnames(MT3, "Survey_Completed_On", "t3_Survey_Completed_On")
+setnames(MT4, \(.x) gsub("\\s", "_", .x))
+setnames(MT4, "Survey_Completed_On", "t4_Survey_Completed_On")
+
+
+MT1 <- MT1[, .SD, .SDcols = c(grep("^t1_", names(MT1), value = TRUE), "Castor_Record_ID")]
+MT2 <- MT2[, .SD, .SDcols = c(grep("^t2_", names(MT2), value = TRUE), "Castor_Record_ID")]
+MT3 <- MT3[, .SD, .SDcols = c(grep("^t3_", names(MT3), value = TRUE), "Castor_Record_ID")]
+MT4 <- MT4[, .SD, .SDcols = c(grep("^t4_", names(MT4), value = TRUE), "Castor_Record_ID")]
+
+
 # previous arrangements to melting data
+screening[, `:=` (Randomized_On = as.POSIXct(Randomized_On))]
 T1[, `:=` (t1_csri_sp_off_heath_t = as.numeric(t1_csri_sp_off_heath_t))]
 T4[, `:=` (t4_m_T1_CSRI_SP_nurse_g_t = as.integer(t4_m_T1_CSRI_SP_nurse_g_t), t4_csri_sp_off_heath_t = as.numeric(t4_csri_sp_off_heath_t))]
-
+MT3[, `:=` (t3_m_T1_CSRI_SP_mental_g_t = as.integer(t3_m_T1_CSRI_SP_mental_g_t))]
 
 T12 <- merge(T1, T2, all = TRUE)
 T34 <- merge(T3, T4, all = TRUE)
 Tdata <- merge(T12, T34, all = TRUE)
 
+
+MT12 <- merge(MT1, MT2, all = TRUE)
+MT34 <- merge(MT3, MT4, all = TRUE)
+MTdata <- merge(MT12, MT34, all = TRUE)
 
 
 Tlong <- melt(Tdata, 
@@ -261,6 +290,12 @@ Tlong <- melt(Tdata,
 Tlong <- na.omit(Tlong, cols = "Survey_Completed_On")
 
 
+MTlong <- melt(MTdata, 
+              measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(?<!t1_t[01]_)(.*)"))
+MTlong <- na.omit(MTlong, cols = "Survey_Completed_On")
+
+Tlong <- rbind(Tlong, MTlong)
+screening <- rbind(screening, Mscreening)
 
 # Data outcomes -----------------------------------------------------------
 
