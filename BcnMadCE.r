@@ -303,14 +303,18 @@ screening <- rbind(screening, Mscreening)
 
 Tlong[, phq9 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^phq9_0\\d")
       ][, gad7 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^gad7_\\d")
-        ][, phq_ads := phq9 + gad7]
+        ][, ptsd := rowSums2(as.matrix(.SD)), .SDcols = patterns("^pcl5_\\d")
+          ][, phq_ads := phq9 + gad7]
 
+rbindlist(lapply(c("phq9_0|gad7_", "phq9_0", "gad7_", "pcl5_"), \(.x) 
+                 Tlong[, .(measName = .x,
+                           avg = mean(rowSums2(as.matrix(.SD)), na.rm = TRUE), 
+                           lower = t.test(rowSums2(as.matrix(.SD)))$conf.int[1], 
+                           upper = t.test(rowSums2(as.matrix(.SD)))$conf.int[2],
+                           pval = t.test(rowSums2(as.matrix(.SD)))$p.value,
+                           alpha = cronbachs_alpha(.SD)), by = .(wave), .SDcols = patterns(paste0("^(",.x,")\\d"))]
+                 ))
 
-Tlong[, .(avg_phq_ads = mean(phq_ads, na.rm = TRUE), 
-          lower = t.test(phq_ads)$conf.int[1], 
-          upper = t.test(phq_ads)$conf.int[2],
-          pval = t.test(phq_ads)$p.value,
-          alpha = cronbachs_alpha(.SD)), by = .(wave), .SDcols = patterns("^(phq9_0|gad7_)\\d")]
 
 
 
