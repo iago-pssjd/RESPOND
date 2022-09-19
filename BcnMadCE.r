@@ -217,7 +217,7 @@ fwrite(T4, file = paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T4_V3
 
 
 
-# Bcn data loading --------------------------------------------------------------
+# Data loading --------------------------------------------------------------
 
 screening <- fread(paste0(data_add, "BcnMadCE/BcnData/BCN_Spain_export_20220906_v2.csv"), sep = ";", na.strings = c("NA", ""), key = "Record Id")
 T1 <- fread(paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T1_V3_enviada_CSV.csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
