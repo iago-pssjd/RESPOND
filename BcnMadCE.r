@@ -123,14 +123,18 @@ Tlong[, phq9 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^phq9_0\\d")
         ][, ptsd := rowSums2(as.matrix(.SD)), .SDcols = patterns("^pcl5_\\d")
           ][, phq_ads := phq9 + gad7]
 
-rbindlist(lapply(c("phq9_0|gad7_", "phq9_0", "gad7_", "pcl5_"), \(.x) 
-                 Tlong[, .(measName = .x,
-                           avg = mean(rowSums2(as.matrix(.SD)), na.rm = TRUE), 
-                           lower = t.test(rowSums2(as.matrix(.SD)))$conf.int[1], 
-                           upper = t.test(rowSums2(as.matrix(.SD)))$conf.int[2],
-                           pval = t.test(rowSums2(as.matrix(.SD)))$p.value,
-                           alpha = cronbachs_alpha(.SD)), by = .(wave), .SDcols = patterns(paste0("^(",.x,")\\d"))]
-                 ))
+outcomes <- c("phq_ads" = "phq9_0|gad7_", "phq9" = "phq9_0", "gad7" = "gad7_", "ptsd" = "pcl5_")
+rbindlist(lapply(seq_along(outcomes), \(.x){
+  out <- names(outcomes)[.x]
+  Tlong[, .(measName = out,
+            avg = mean(.SD[[out]], na.rm = TRUE), 
+            lower = t.test(.SD[[out]])$conf.int[1], 
+            upper = t.test(.SD[[out]])$conf.int[2],
+            pval = t.test(.SD[[out]])$p.value,
+            alpha = cronbachs_alpha(.SD[, -out, with = FALSE])), 
+        by = .(wave), 
+        .SDcols = patterns(paste0("^((",outcomes[.x],")\\d|",names(outcomes)[.x],"$)"))]
+}))
 
 
 
@@ -139,8 +143,18 @@ rbindlist(lapply(c("phq9_0|gad7_", "phq9_0", "gad7_", "pcl5_"), \(.x)
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
 eTlong[order(Randomization_Group, wave), .(avg_phq_ads = mean(phq_ads, na.rm = TRUE)), by = .(wave, Randomization_Group)]
+eS1 <- eTlong[order(Institute_Abbreviation, Randomization_Group, wave), 
+       unlist(lapply(.SD, \(.x) list(mean = mean(.x, na.rm = TRUE),
+                                     sd = sd(.x, na.rm = TRUE),
+                                     median = median(.x, na.rm = TRUE),
+                                     Q1 = quantile(.x, probs = 0.25, na.rm = TRUE),
+                                     Q3 = quantile(.x, probs = 0.75, na.rm = TRUE),
+                                     max = max(.x, na.rm = TRUE),
+                                     min = min(.x, na.rm = TRUE))), 
+              rec = FALSE), 
+       by = .(Institute_Abbreviation), .SDcols = c("phq_ads", "phq9", "gad7")]
 
-
+melt(eS1, measure.vars = measure(outcome, value.name, pattern = "(^.*)\\.([a-zA-Z0-9]*)"))
 
 eTlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c("phq_ads"), by = .(wave, Randomization_Group)] |> 
   ggplot(aes(x = wave, y = phq_ads, colour = Randomization_Group)) +
