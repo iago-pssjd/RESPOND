@@ -50,7 +50,8 @@ MT3 <- fread(paste0(data_add, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T3_e
 MT4 <- fread(paste0(data_add, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T4_export_20220818(1).csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
 
 
-
+items <- fread(paste0(data_add, "../../survey_variablelist.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
+items <- items[, .(`Survey name`, `Step name`, `Variable name`, `Optiongroup name`, `Field label`)]
 
 
 

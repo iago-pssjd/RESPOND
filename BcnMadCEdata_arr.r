@@ -35,9 +35,9 @@ fields <- fread(paste0(data_add, "../../field_options.csv"), encoding = "UTF-8",
 scitems <- fread(paste0(data_add, "../../study_variablelist.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
 scitems <- na.omit(scitems[, .(`Variable name`, `Optiongroup name`)])
 items <- fread(paste0(data_add, "../../survey_variablelist.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
-items <- na.omit(items[, .(`Survey name`, `Step name`, `Variable name`, `Optiongroup name`, `Field label`)])
+items <- na.omit(items[, .(`Variable name`, `Optiongroup name`)])
 scmetadata <- merge(scitems, fields, all = FALSE, by.x = "Optiongroup name", by.y = "Option group name", allow.cartesian = TRUE)
-metadata <- merge(items[, .(`Variable name`, `Optiongroup name`)], fields, all = FALSE, by.x = "Optiongroup name", by.y = "Option group name", allow.cartesian = TRUE)
+metadata <- merge(items, fields, all = FALSE, by.x = "Optiongroup name", by.y = "Option group name", allow.cartesian = TRUE)
 
 
 # Bcn data recoding ------------------------------------------------------------
