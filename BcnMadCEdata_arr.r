@@ -1,4 +1,4 @@
-# BcnMadCE.r
+# BcnMadCEdata_arr.r
 
 # Data directory ----------------------------------------------------------
 
