@@ -146,7 +146,8 @@ MTlong <- na.omit(MTlong, cols = "Survey_Completed_On")
 Tlong <- rbind(Tlong, MTlong)
 screening <- rbind(screening, Mscreening)
 # names(Tlong)[names(Tlong) %in% items$var] |> identical(items[var != "eq5d5l_remark"]$var)
-names(Tlong)[names(Tlong) %in% items$var] <- paste0(names(Tlong)[names(Tlong) %in% items$var], " [", items[var != "eq5d5l_remark"]$`Step name`,"]")
+# names(Tlong)[names(Tlong) %in% items$var] <- paste0(names(Tlong)[names(Tlong) %in% items$var], " [", items[var != "eq5d5l_remark"]$`Step name`,"]")
+enTlong <- paste0(names(Tlong)[names(Tlong) %in% items$var], " [", items[var != "eq5d5l_remark"]$`Step name`,"]")
 
 # Data outcomes -----------------------------------------------------------
 
@@ -158,4 +159,4 @@ Tlong[, phq9 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^phq9_0\\d")
 
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
-save(Tdata, MTdata, Tlong, screening, eTlong, file = paste0(data_add, "../target/BcnMadCE/CEdata.rdata"))
+save(Tdata, MTdata, Tlong, enTlong, screening, eTlong, file = paste0(data_add, "../target/BcnMadCE/CEdata.rdata"))

@@ -43,11 +43,48 @@ load(paste0(data_add, "../target/BcnMadCE/CEdata.rdata"))
 # Analysis ----------------------------------------------------------------
 
 
+
+## Stressor Reactivity ----------------------------------------------------------------------
+
+MIMIS <- grep("^(?!le).*LIR", enTlong, value = TRUE, perl = TRUE) # negative lookbehind
+MIMIS <- sub("^([a-z_0-9]+) .*$", "\\1", MIMIS)
+
+### Normal Stressor Reactivity ----------------------------------------------------------------------
+
+normalf <- gaussian()
+# either
+
+nsrdata <- Tlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(MIMIS, "phq_ads"), by = .(Castor_Record_ID)]
+nsr <- lm(phq_ads ~ ., data = nsrdata[, -c("Castor_Record_ID")])
+
+# or
+
+SRform <- lapply(MIMIS, reformulate, response = "phq_ads")
+nsr <- lapply(SRform, lm, data = nsrdata[, -c("Castor_Record_ID")])
+names(nsr) <- MIMIS
+invisible(lapply(MIMIS, \(.x) nsrdata[, (paste0(.x, "_pred")) := predict(nsr[[.x]], nsrdata)]))
+
+
+
+### Individual Stressor Reactivity score ----------------------------------------------------------------------
+
+srTlong <- merge(Tlong, nsrdata, by = "Castor_Record_ID", all = TRUE, sort = FALSE, suffixes = c("", "_avgtl"))
+# srTlong[,.((.SD), Castor_Record_ID, wave), .SDcols = patterns(MIMIS[1])][order(Castor_Record_ID, wave)]
+
+## Primary/Secondary outcomes description ----------------------------------
+
+
 outcomes <- c("phq_ads" = "phq9_0|gad7_", "phq9" = "phq9_0", "gad7" = "gad7_", "ptsd" = "pcl5_")
-eT1 <- rbindlist(lapply(seq_along(outcomes), \(.x){
+ST1 <- rbindlist(lapply(seq_along(outcomes), \(.x){
   out <- names(outcomes)[.x]
-  Tlong[, .(measName = out,
+  Tlong[, .(outcome = out,
             avg = mean(.SD[[out]], na.rm = TRUE), 
+            sd = sd(.SD[[out]], na.rm = TRUE),
+            median = median(.SD[[out]], na.rm = TRUE),
+            Q1 = quantile(.SD[[out]], probs = 0.25, na.rm = TRUE),
+            Q3 = quantile(.SD[[out]], probs = 0.75, na.rm = TRUE),
+            max = max(.SD[[out]], na.rm = TRUE),
+            min = min(.SD[[out]], na.rm = TRUE), 
             lower = t.test(.SD[[out]])$conf.int[1], 
             upper = t.test(.SD[[out]])$conf.int[2],
             pval = t.test(.SD[[out]])$p.value,
@@ -57,13 +94,17 @@ eT1 <- rbindlist(lapply(seq_along(outcomes), \(.x){
 }))
 
 
-melt(dcast(eT1, measName ~ wave, value.var = names(eT1[,-c("measName", "wave")])),
-     measure.vars = measure(coef = \(.x) factor(.x, levels = c("avg", "lower", "upper", "pval", "alpha")), 
-                            value.name, pattern = "^([a-z]+)_([1234])$"))[order(measName, coef)]
+melt(dcast(ST1, outcome ~ wave, value.var = names(ST1[,-c("outcome", "wave")])),
+     measure.vars = measure(coef = \(.x) factor(.x, levels = names(ST1[,-c("outcome", "wave")])), 
+                            value.name, pattern = "^([a-zA-Z0-9]+)_([1234])$"))[order(outcome, coef)]
+
+
+### Similar per institution or group ----------------------------------------
 
 
 
 eTlong[order(Randomization_Group, wave), .(avg_phq_ads = mean(phq_ads, na.rm = TRUE)), by = .(wave, Randomization_Group)]
+
 eS1 <- eTlong[order(Institute_Abbreviation, Randomization_Group, wave), 
        unlist(lapply(.SD, \(.x) list(mean = mean(.x, na.rm = TRUE),
                                      sd = sd(.x, na.rm = TRUE),
