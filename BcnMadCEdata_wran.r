@@ -4,16 +4,16 @@
 
 
 if(Sys.info()["sysname"] == "Linux"){
-  data_add <- paste0("/media/",
-                     system("whoami", intern = TRUE),
-                     "/",
-                     system(paste0("ls /media/",system("whoami", intern = TRUE)), intern = TRUE),
-                     "/PSSJD/RESPOND/data/source/")
-  data_add <- data_add[file.exists(data_add)]
+	data_add <- paste0("/media/",
+			   system("whoami", intern = TRUE),
+			   "/",
+			   system(paste0("ls /media/",system("whoami", intern = TRUE)), intern = TRUE),
+			   "/PSSJD/RESPOND/data/source/")
+	data_add <- data_add[file.exists(data_add)]
 } else if(Sys.info()["sysname"] == "Windows"){
-  data_add <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
-  data_add <- data_add[file.exists(data_add)]
-  data_add <- paste0(data_add, "/")
+	data_add <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
+	data_add <- data_add[file.exists(data_add)]
+	data_add <- paste0(data_add, "/")
 }
 
 
@@ -96,15 +96,15 @@ MT4 <- MT4[, .SD, .SDcols = c(grep("^t4_", names(MT4), value = TRUE), "Castor_Re
 
 items <- items[, .(`Survey name`, `Step name`, `Variable name`, `Optiongroup name`, `Field label`)]
 items[, `:=` (var = fifelse(`Survey name` != "MASTER", sub("^t\\d_", "", `Variable name`), `Variable name`),
-              `Step name` = fcase(`Step name` == "RESPOND-adapted BTQ", "BTQ",
-                                  `Step name` == "COVID-19-adapted CSRI (WP4)", "CSRI",
-                                  grepl("^COVID-19-related", `Step name`), "COVID-19",
-                                  rep(TRUE, .N), sub("(^[^ ]*)\\s.*$", "\\1", `Step name`)
-              ))
+	      `Step name` = fcase(`Step name` == "RESPOND-adapted BTQ", "BTQ",
+				  `Step name` == "COVID-19-adapted CSRI (WP4)", "CSRI",
+				  grepl("^COVID-19-related", `Step name`), "COVID-19",
+				  rep(TRUE, .N), sub("(^[^ ]*)\\s.*$", "\\1", `Step name`)
+				  ))
       ][, `:=` (var = fcase(`Step name` == "COVID-19" & var == "covid19_baseline_01_1", "covid19_01_1",
-                            `Step name` == "COVID-19", sub("baseline_0", "", var),
-                            rep(TRUE, .N), var),
-                `Step name` = sub(" \\(baseline\\)", "", `Step name`))]
+		            `Step name` == "COVID-19", sub("baseline_0", "", var),
+			    rep(TRUE, .N), var),
+	        `Step name` = sub(" \\(baseline\\)", "", `Step name`))]
 items <- na.omit(items, cols = "var")
 setcolorder(items, "var", before = "Variable name")
 # uniqueN(items, by = "var") == uniqueN(items[`Survey name` == "MASTER"], by = "var")
@@ -135,12 +135,12 @@ MTdata <- merge(MT12, MT34, all = TRUE)
 
 
 Tlong <- melt(Tdata, 
-              measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(?<!t1_t[01]_)(.*)"))
+	      measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(?<!t1_t[01]_)(.*)"))
 Tlong <- na.omit(Tlong, cols = "Survey_Completed_On")
 
 
 MTlong <- melt(MTdata, 
-               measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(?<!t1_t[01]_)(.*)"))
+	       measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(?<!t1_t[01]_)(.*)"))
 MTlong <- na.omit(MTlong, cols = "Survey_Completed_On")
 
 Tlong <- rbind(Tlong, MTlong)
@@ -154,8 +154,8 @@ enTlong <- paste0(names(Tlong)[names(Tlong) %in% items$var], " [", items[var != 
 
 Tlong[, phq9 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^phq9_0\\d")
       ][, gad7 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^gad7_\\d")
-        ][, ptsd := rowSums2(as.matrix(.SD)), .SDcols = patterns("^pcl5_\\d")
-          ][, phq_ads := phq9 + gad7]
+      ][, ptsd := rowSums2(as.matrix(.SD)), .SDcols = patterns("^pcl5_\\d")
+      ][, phq_ads := phq9 + gad7]
 
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 

@@ -4,16 +4,16 @@
 
 
 if(Sys.info()["sysname"] == "Linux"){
-  data_add <- paste0("/media/",
-                     system("whoami", intern = TRUE),
-                     "/",
-                     system(paste0("ls /media/",system("whoami", intern = TRUE)), intern = TRUE),
-                     "/PSSJD/RESPOND/data/source/")
-  data_add <- data_add[file.exists(data_add)]
+	data_add <- paste0("/media/",
+			   system("whoami", intern = TRUE),
+			   "/",
+			   system(paste0("ls /media/",system("whoami", intern = TRUE)), intern = TRUE),
+			   "/PSSJD/RESPOND/data/source/")
+	data_add <- data_add[file.exists(data_add)]
 } else if(Sys.info()["sysname"] == "Windows"){
-  data_add <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
-  data_add <- data_add[file.exists(data_add)]
-  data_add <- paste0(data_add, "/")
+	data_add <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
+	data_add <- data_add[file.exists(data_add)]
+	data_add <- paste0(data_add, "/")
 }
 
 
@@ -95,18 +95,18 @@ T1fields <- names(T1)[names(T1) %in% metadata$`Variable name`]
 
 sinocols <- grep("^t1_", unique(metadata[grep("(?i)si(\\s|/)no", unique(metadata$`Optiongroup name`), value = TRUE)]$`Variable name`), value = TRUE, perl = TRUE)
 m1cols <- c(paste0("t1_", c("t1_soc_2", "t0_soc_12")),
-            grep("^t1_", unique(metadata[c(grep("(?i)covid|ph|gad|pcl-5|csri", unique(metadata$`Optiongroup name`), value = TRUE),
-                                           "MIMIS core and WP specific stressor list spain", "Major stressors SP")]$`Variable name`), value = TRUE),
-            NULL)
+	    grep("^t1_", unique(metadata[c(grep("(?i)covid|ph|gad|pcl-5|csri", unique(metadata$`Optiongroup name`), value = TRUE),
+					   "MIMIS core and WP specific stressor list spain", "Major stressors SP")]$`Variable name`), value = TRUE),
+	    NULL)
 
 T1[, c(sinocols) := lapply(.SD, \(.x) 2L - .x), .SDcols = sinocols
-][, c(m1cols) := lapply(.SD, \(.x) .x - 1L), .SDcols = m1cols]
+   ][, c(m1cols) := lapply(.SD, \(.x) .x - 1L), .SDcols = m1cols]
 
 qualtrics2castor <- list(t1_t0_soc_01 = data.table(from = 1:6, to = c(1L,2L,5L,6L,3L,4L)),
-                         t1_t1_soc_1 = data.table(from = 1:5, to = c(0L,1L,4L,5L,6L)))
+			 t1_t1_soc_1 = data.table(from = 1:5, to = c(0L,1L,4L,5L,6L)))
 
 for(var in names(qualtrics2castor)){
-  T1[qualtrics2castor[[var]], on = paste0(var, "==from"), (var) := i.to]
+	T1[qualtrics2castor[[var]], on = paste0(var, "==from"), (var) := i.to]
 }
 
 fwrite(T1, file = paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T1_V3_enviada_CSV.csv"), sep = ";")
@@ -133,11 +133,11 @@ T2fields <- names(T2)[names(T2) %in% metadata$`Variable name`]
 # sapply(T2fields, \(.x) length(setdiff(names(table(T2[[.x]])), metadata[`Variable name` == .x]$`Option value`)) == 0)
 
 m1cols <- grep("^t2_", unique(metadata[c(grep("(?i)ph|gad|covid|pcl-5|csri", unique(metadata$`Optiongroup name`), value = TRUE),
-                                         "MIMIS core and WP specific stressor list spain", "Major stressors SP")]$`Variable name`), value = TRUE)
+					 "MIMIS core and WP specific stressor list spain", "Major stressors SP")]$`Variable name`), value = TRUE)
 sinocols <- grep("^t2_", unique(metadata[grep("(?i)si(\\s|/)no", unique(metadata$`Optiongroup name`), value = TRUE)]$`Variable name`), value = TRUE, perl = TRUE)
 
 T2[, c(sinocols) := lapply(.SD, \(.x) 2L - .x), .SDcols = sinocols
-][, c(m1cols) := lapply(.SD, \(.x) .x - 1L), .SDcols = m1cols]
+   ][, c(m1cols) := lapply(.SD, \(.x) .x - 1L), .SDcols = m1cols]
 
 
 fwrite(T2, file = paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T2_V3_enviada_CSV.csv"), sep = ";")
@@ -164,11 +164,11 @@ T3fields <- names(T3)[names(T3) %in% metadata$`Variable name`]
 # sapply(T3fields, \(.x) length(setdiff(names(table(T3[[.x]])), metadata[`Variable name` == .x]$`Option value`)) == 0)
 
 m1cols <- grep("^t3_", unique(metadata[c(grep("(?i)ph|gad|covid|pcl-5|csri", unique(metadata$`Optiongroup name`), value = TRUE),
-                                         "MIMIS core and WP specific stressor list spain", "Major stressors SP")]$`Variable name`), value = TRUE)
+					 "MIMIS core and WP specific stressor list spain", "Major stressors SP")]$`Variable name`), value = TRUE)
 sinocols <- grep("^t3_", unique(metadata[grep("(?i)si(\\s|/)no", unique(metadata$`Optiongroup name`), value = TRUE)]$`Variable name`), value = TRUE, perl = TRUE)
 
 T3[, c(sinocols) := lapply(.SD, \(.x) 2L - .x), .SDcols = sinocols
-][, c(m1cols) := lapply(.SD, \(.x) .x - 1L), .SDcols = m1cols]
+   ][, c(m1cols) := lapply(.SD, \(.x) .x - 1L), .SDcols = m1cols]
 
 
 fwrite(T3, file = paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T3_V3_enviada_CSV.csv"), sep = ";")
@@ -199,11 +199,11 @@ T4fields <- names(T4)[names(T4) %in% metadata$`Variable name`]
 # sapply(T4fields, \(.x) length(setdiff(names(table(T4[[.x]])), metadata[`Variable name` == .x]$`Option value`)) == 0)
 
 m1cols <- grep("^t4_", unique(metadata[c(grep("(?i)ph|gad|covid|pcl-5|csri", unique(metadata$`Optiongroup name`), value = TRUE),
-                                         "MIMIS core and WP specific stressor list spain", "Major stressors SP")]$`Variable name`), value = TRUE)
+					 "MIMIS core and WP specific stressor list spain", "Major stressors SP")]$`Variable name`), value = TRUE)
 sinocols <- grep("^t4_", unique(metadata[grep("(?i)si(\\s|/)no", unique(metadata$`Optiongroup name`), value = TRUE)]$`Variable name`), value = TRUE, perl = TRUE)
 
 T4[, c(sinocols) := lapply(.SD, \(.x) 2L - .x), .SDcols = sinocols
-][, c(m1cols) := lapply(.SD, \(.x) .x - 1L), .SDcols = m1cols]
+   ][, c(m1cols) := lapply(.SD, \(.x) .x - 1L), .SDcols = m1cols]
 
 
 fwrite(T4, file = paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T4_V3_enviada_CSV.csv"), sep = ";")
