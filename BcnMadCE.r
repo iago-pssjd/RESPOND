@@ -52,10 +52,13 @@ MIMIS <- sub("^([a-z_0-9]+) .*$", "\\1", MIMIS)
 ### Normal Stressor Reactivity ----------------------------------------------------------------------
 
 normalf <- gaussian()
+nsrdata <- Tlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(MIMIS, "phq_ads"), by = .(Castor_Record_ID)]
+
 # either
 
-nsrdata <- Tlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(MIMIS, "phq_ads"), by = .(Castor_Record_ID)]
 nsr <- lm(phq_ads ~ ., data = nsrdata[, -c("Castor_Record_ID")])
+nsrdata[, phq_ads := predict(nsr, nsrdata)]
+# warning: previous line removes average phq_ads
 
 # or
 
@@ -68,8 +71,18 @@ invisible(lapply(MIMIS, \(.x) nsrdata[, (paste0(.x, "_pred")) := predict(nsr[[.x
 
 ### Individual Stressor Reactivity score ----------------------------------------------------------------------
 
-srTlong <- merge(Tlong, nsrdata, by = "Castor_Record_ID", all = TRUE, sort = FALSE, suffixes = c("", "_avgtl"))
+srTlong <- merge(Tlong, nsrdata, by = "Castor_Record_ID", all = TRUE, sort = FALSE, suffixes = c("", "_nsr"))
+
+# either
+pmimis <- srTlong[, ncol(.SD)/2, .SDcols = patterns("^e[gch]_\\d|phq_ads")]
+srTlong[, .SD[,1:pmimis] - .SD[,(pmimis+1):(2*pmimis)], .SDcols = patterns("^e[gch]_\\d|phq_ads")]
+srTlong[, SR := sqrt(rowSums2(as.matrix((.SD[,1:pmimis] - .SD[,(pmimis+1):(2*pmimis)])^2))), .SDcols = patterns("^e[gch]_\\d|phq_ads")]|
+
+# or
+
 # srTlong[,.((.SD), Castor_Record_ID, wave), .SDcols = patterns(MIMIS[1])][order(Castor_Record_ID, wave)]
+
+
 
 ## Primary/Secondary outcomes description ----------------------------------
 
