@@ -49,6 +49,46 @@ load(paste0(data_add, "../target/BcnMadCE/CEdata.rdata"))
 MIMIS <- grep("^(?!le).*LIR", enTlong, value = TRUE, perl = TRUE) # negative lookbehind
 MIMIS <- sub("^([a-z_0-9]+) .*$", "\\1", MIMIS)
 
+LE <- grep("^le.*LIR", enTlong, value = TRUE, perl = TRUE) #  general life events (n=3)
+LE <- sub("^([a-z_0-9]+) .*$", "\\1", LE)
+
+GS <- grep("^eg.*LIR", enTlong, value = TRUE, perl = TRUE) # general stressors (6 items)
+GS <- sub("^([a-z_0-9]+) .*$", "\\1", GS)
+
+CS <- grep("^ec.*LIR", enTlong, value = TRUE, perl = TRUE) # COVID-19-specific stressors (5 items)
+CS <- sub("^([a-z_0-9]+) .*$", "\\1", CS)
+# or?
+# CS <- c("ec_1", "ec_2", "eh_1", "eh_2")
+
+PS <- grep("^eh.*LIR", enTlong, value = TRUE, perl = TRUE) # population-specific stressors (n=4)
+PS <- sub("^([a-z_0-9]+) .*$", "\\1", PS)
+
+Elist <- list(LE = LE, GS = GS, CS = CS, PS = PS)
+
+### Stressor Exposure ----------------------------------------------------------------------
+
+
+invisible(lapply(seq_along(Elist), \(.x) Tlong[, (paste0("E", names(Elist)[.x])) := rowSums2(as.matrix(.SD[, Elist[[.x]], with = FALSE]))]))
+
+# MIMIS ara Daily Stressors (DS): Exposure Daily Stressors
+# a la Veer (Assessment of stressors, p. 3)
+# Exposure Combined stressors
+# Tlong[, EDS := rowMeans2(scale(as.matrix(.SD[, unlist(Elist[-match("LE", names(Elist))]), with = FALSE])))
+#       ][, EC := rowMeans2(scale(as.matrix(.SD[, c("EDS", "ELE"), with = FALSE])))] 
+
+
+# count method combined with Veer averaging method
+# Tlong[, EDS := rowSums2(as.matrix(.SD[, unlist(Elist[-match("LE", names(Elist))]), with = FALSE]))
+#       ][, EC := rowMeans2(scale(as.matrix(.SD[, c("EDS", "ELE"), with = FALSE])))] 
+
+# count method for all (does have it sense???, having DS and LE distinct raiting scales)
+# Tlong[, `:=` (EDS = rowSums2(as.matrix(.SD[, unlist(Elist[-match("LE", names(Elist))]), with = FALSE])),
+#               EC = rowSums2(as.matrix(.SD[, unlist(Elist), with = FALSE])))]
+
+# same without defining EC
+Tlong[, EDS := rowSums2(as.matrix(.SD[, unlist(Elist[-match("LE", names(Elist))]), with = FALSE]))]
+
+
 ### Normal Stressor Reactivity ----------------------------------------------------------------------
 
 normalf <- gaussian()
@@ -58,14 +98,14 @@ nsrdata <- Tlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(MIMIS, "phq_ads"
 
 nsr <- lm(phq_ads ~ ., data = nsrdata[, -c("Castor_Record_ID")])
 nsrdata[, phq_ads := predict(nsr, nsrdata)]
-# warning: previous line removes average phq_ads
+# WARNING!!!: previous line removes average phq_ads
 
 # or
 
 SRform <- lapply(MIMIS, reformulate, response = "phq_ads")
 nsr <- lapply(SRform, lm, data = nsrdata[, -c("Castor_Record_ID")])
 names(nsr) <- MIMIS
-invisible(lapply(MIMIS, \(.x) nsrdata[, (paste0(.x, "_pred")) := predict(nsr[[.x]], nsrdata)]))
+invisible(lapply(MIMIS, \(.x) nsrdata[, (paste0(.x, "_phqads")) := predict(nsr[[.x]], nsrdata)]))
 
 
 
@@ -74,14 +114,13 @@ invisible(lapply(MIMIS, \(.x) nsrdata[, (paste0(.x, "_pred")) := predict(nsr[[.x
 srTlong <- merge(Tlong, nsrdata, by = "Castor_Record_ID", all = TRUE, sort = FALSE, suffixes = c("", "_nsr"))
 
 # either
-pmimis <- srTlong[, ncol(.SD)/2, .SDcols = patterns("^e[gch]_\\d|phq_ads")]
-srTlong[, .SD[,1:pmimis] - .SD[,(pmimis+1):(2*pmimis)], .SDcols = patterns("^e[gch]_\\d|phq_ads")]
-srTlong[, SR := sqrt(rowSums2(as.matrix((.SD[,1:pmimis] - .SD[,(pmimis+1):(2*pmimis)])^2))), .SDcols = patterns("^e[gch]_\\d|phq_ads")]|
+srTlong[, SR := sqrt(rowSums2(as.matrix((.SD[, .SD, .SDcols = !patterns("_nsr$")] - .SD[, .SD, .SDcols = patterns("_nsr$")])^2))), 
+        .SDcols = patterns("^e[gch]_\\d|phq_ads")]
 
 # or
 
-# srTlong[,.((.SD), Castor_Record_ID, wave), .SDcols = patterns(MIMIS[1])][order(Castor_Record_ID, wave)]
-
+invisible(lapply(MIMIS, \(.x) srTlong[, (paste0("SR_", .x)) := sqrt(rowSums2(as.matrix((.SD[, .SD, .SDcols = !patterns(paste0(.x,"_"))] - .SD[, .SD, .SDcols = patterns(paste0(.x,"_"))])^2))), 
+                                         .SDcols = patterns(paste0(.x,"|phq_ads$"))]))
 
 
 ## Primary/Secondary outcomes description ----------------------------------
