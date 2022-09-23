@@ -97,7 +97,7 @@ nsrdata <- Tlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(SsE, "phq_ads"),
 
 # Kalisch averaging method for EC (maybe should it be applied also to EDS here???)
 nsrdata[, EC := rowMeans2(scale(as.matrix(.SD[, c("EDS", "ELE"), with = FALSE])))] 
-
+SsE <- c(SsE, "EC")
 
 SRform <- lapply(SsE, reformulate, response = "phq_ads")
 nsr <- lapply(SRform, lm, data = nsrdata[, -c("Castor_Record_ID")])
