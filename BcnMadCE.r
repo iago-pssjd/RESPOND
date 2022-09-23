@@ -77,7 +77,7 @@ invisible(lapply(seq_along(Elist), \(.x) Tlong[, (paste0("E", names(Elist)[.x]))
 #       ][, EC := rowMeans2(scale(as.matrix(.SD[, c("EDS", "ELE"), with = FALSE])))] 
 
 
-# count method combined with Veer averaging method
+# count method (a la Kalisch [Residualization-Based Calculation of Stressor Reactivity, p. 6]) combined with Veer averaging method
 # Tlong[, EDS := rowSums2(as.matrix(.SD[, unlist(Elist[-match("LE", names(Elist))]), with = FALSE]))
 #       ][, EC := rowMeans2(scale(as.matrix(.SD[, c("EDS", "ELE"), with = FALSE])))] 
 
@@ -88,24 +88,21 @@ invisible(lapply(seq_along(Elist), \(.x) Tlong[, (paste0("E", names(Elist)[.x]))
 # same without defining EC
 Tlong[, EDS := rowSums2(as.matrix(.SD[, unlist(Elist[-match("LE", names(Elist))]), with = FALSE]))]
 
+SsE <- c(paste0("E", names(Elist)), "EDS")
 
 ### Normal Stressor Reactivity ----------------------------------------------------------------------
 
 normalf <- gaussian()
-nsrdata <- Tlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(MIMIS, "phq_ads"), by = .(Castor_Record_ID)]
+nsrdata <- Tlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(SsE, "phq_ads"), by = .(Castor_Record_ID)]
 
-# either
+# Kalisch averaging method for EC (maybe should it be applied also to EDS here???)
+nsrdata[, EC := rowMeans2(scale(as.matrix(.SD[, c("EDS", "ELE"), with = FALSE])))] 
 
-nsr <- lm(phq_ads ~ ., data = nsrdata[, -c("Castor_Record_ID")])
-nsrdata[, phq_ads := predict(nsr, nsrdata)]
-# WARNING!!!: previous line removes average phq_ads
 
-# or
-
-SRform <- lapply(MIMIS, reformulate, response = "phq_ads")
+SRform <- lapply(SsE, reformulate, response = "phq_ads")
 nsr <- lapply(SRform, lm, data = nsrdata[, -c("Castor_Record_ID")])
-names(nsr) <- MIMIS
-invisible(lapply(MIMIS, \(.x) nsrdata[, (paste0(.x, "_phqads")) := predict(nsr[[.x]], nsrdata)]))
+names(nsr) <- SsE
+invisible(lapply(SsE, \(.x) nsrdata[, (paste0(.x, "_phqads")) := predict(nsr[[.x]], nsrdata)]))
 
 
 
@@ -113,13 +110,8 @@ invisible(lapply(MIMIS, \(.x) nsrdata[, (paste0(.x, "_phqads")) := predict(nsr[[
 
 srTlong <- merge(Tlong, nsrdata, by = "Castor_Record_ID", all = TRUE, sort = FALSE, suffixes = c("", "_nsr"))
 
-# either
-srTlong[, SR := sqrt(rowSums2(as.matrix((.SD[, .SD, .SDcols = !patterns("_nsr$")] - .SD[, .SD, .SDcols = patterns("_nsr$")])^2))), 
-        .SDcols = patterns("^e[gch]_\\d|phq_ads")]
 
-# or
-
-invisible(lapply(MIMIS, \(.x) srTlong[, (paste0("SR_", .x)) := sqrt(rowSums2(as.matrix((.SD[, .SD, .SDcols = !patterns(paste0(.x,"_"))] - .SD[, .SD, .SDcols = patterns(paste0(.x,"_"))])^2))), 
+invisible(lapply(SsE, \(.x) srTlong[, (paste0("SR_", .x)) := sqrt(rowSums2(as.matrix((.SD[, .SD, .SDcols = !patterns(paste0(.x,"_"))] - .SD[, .SD, .SDcols = patterns(paste0(.x,"_"))])^2))), 
                                          .SDcols = patterns(paste0(.x,"|phq_ads$"))]))
 
 
