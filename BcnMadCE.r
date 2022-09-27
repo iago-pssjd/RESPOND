@@ -110,7 +110,6 @@ SsE <- c(SsE, "EC")
 SRform <- lapply(SsE, reformulate, response = "phq_ads")
 nsr <- lapply(SRform, lm, data = nsrdata[, -c("Castor_Record_ID")])
 names(nsr) <- SsE
-# invisible(lapply(SsE, \(.x) nsrdata[, (paste0(.x, "_phqads")) := predict(nsr[[.x]], nsrdata)][, (paste0("SR_", .x)) := phq_ads - predict(nsr[[.x]], nsrdata)]))
 
 ### Individual Stressor Reactivity score ----------------------------------------------------------------------
 
