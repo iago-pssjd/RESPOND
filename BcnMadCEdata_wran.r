@@ -155,7 +155,8 @@ enTlong <- paste0(names(Tlong)[names(Tlong) %in% items$var], " [", items[var != 
 Tlong[, phq9 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^phq9_0\\d")
       ][, gad7 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^gad7_\\d")
       ][, ptsd := rowSums2(as.matrix(.SD)), .SDcols = patterns("^pcl5_\\d")
-      ][, phq_ads := phq9 + gad7]
+      ][, phq_ads := phq9 + gad7
+      ][, passc := rowSums2(as.matrix(.SD)), .SDcols = patterns("passc_\\d+")]
 
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
