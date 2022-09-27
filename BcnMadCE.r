@@ -117,13 +117,6 @@ names(nsr) <- SsE
 # one’s individual SR score at any time point is the distance of an individual’s P score to the regression line (a subject’s residual)
 
 
-
-
-# srTlong <- merge(Tlong, nsrdata, by = "Castor_Record_ID", all = TRUE, sort = FALSE, suffixes = c("", "_nsr"))
-# invisible(lapply(SsE, \(.x) srTlong[, (paste0("SR_", .x)) := sqrt(rowSums2(as.matrix((.SD[, .SD, .SDcols = !patterns(paste0(.x,"_"))] - .SD[, .SD, .SDcols = patterns(paste0(.x,"_"))])^2))), 
-#                                          .SDcols = patterns(paste0(.x,"|phq_ads$"))]))
-
-
 ## Primary/Secondary outcomes description ----------------------------------
 
 
