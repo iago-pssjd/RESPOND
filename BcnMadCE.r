@@ -63,7 +63,7 @@ CS <- sub("^([a-z_0-9]+) .*$", "\\1", CS)
 PS <- grep("^eh.*LIR", enTlong, value = TRUE, perl = TRUE) # population-specific stressors (n=4)
 PS <- sub("^([a-z_0-9]+) .*$", "\\1", PS)
 
-Elist <- list(LE = LE, GS = GS, CS = CS, PS = PS)
+Elist <- list(LE = LE, MIMIS = MIMIS, GS = GS, CS = CS, PS = PS)
 
 ### Stressor Exposure ----------------------------------------------------------------------
 
@@ -86,9 +86,11 @@ invisible(lapply(seq_along(Elist), \(.x) Tlong[, (paste0("E", names(Elist)[.x]))
 #               EC = rowSums2(as.matrix(.SD[, unlist(Elist), with = FALSE])))]
 
 # same without defining EC
-Tlong[, EDS := rowSums2(as.matrix(.SD[, unlist(Elist[-match("LE", names(Elist))]), with = FALSE]))]
-
-SsE <- c(paste0("E", names(Elist)), "EDS")
+# Tlong[, EDS := rowSums2(as.matrix(.SD[, unlist(Elist[-match("LE", names(Elist))]), with = FALSE]))]
+# SsE <- c(paste0("E", names(Elist)), "EDS")
+# two previous lines are commented by adding MIMIS to Elist, so EMIMIS = EDS
+# and
+SsE <- paste0("E", names(Elist))
 
 ### Normal Stressor Reactivity ----------------------------------------------------------------------
 
@@ -96,7 +98,7 @@ normalf <- gaussian()
 nsrdata <- Tlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(SsE, "phq_ads"), by = .(Castor_Record_ID)]
 
 # Kalisch averaging method for EC (maybe should it be applied also to EDS here???)
-nsrdata[, EC := rowMeans2(scale(as.matrix(.SD[, c("EDS", "ELE"), with = FALSE])))] 
+nsrdata[, EC := rowMeans2(scale(as.matrix(.SD[, c("EMIMIS", "ELE"), with = FALSE])))] 
 SsE <- c(SsE, "EC")
 
 SRform <- lapply(SsE, reformulate, response = "phq_ads")
