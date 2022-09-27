@@ -46,8 +46,8 @@ load(paste0(data_add, "../target/BcnMadCE/CEdata.rdata"))
 
 ## Stressor Reactivity ----------------------------------------------------------------------
 
-MIMIS <- grep("^(?!le).*LIR", enTlong, value = TRUE, perl = TRUE) # negative lookbehind
-MIMIS <- sub("^([a-z_0-9]+) .*$", "\\1", MIMIS)
+DH <- grep("^(?!le).*LIR", enTlong, value = TRUE, perl = TRUE) # negative lookbehind
+DH <- sub("^([a-z_0-9]+) .*$", "\\1", MIMIS)
 
 LE <- grep("^le.*LIR", enTlong, value = TRUE, perl = TRUE) #  general life events (n=3)
 LE <- sub("^([a-z_0-9]+) .*$", "\\1", LE)
@@ -63,7 +63,7 @@ CS <- sub("^([a-z_0-9]+) .*$", "\\1", CS)
 PS <- grep("^eh.*LIR", enTlong, value = TRUE, perl = TRUE) # population-specific stressors (n=4)
 PS <- sub("^([a-z_0-9]+) .*$", "\\1", PS)
 
-Elist <- list(LE = LE, MIMIS = MIMIS, GS = GS, CS = CS, PS = PS)
+Elist <- list(LE = LE, DH = DH, GS = GS, CS = CS, PS = PS)
 
 ### Stressor Exposure ----------------------------------------------------------------------
 
@@ -87,15 +87,17 @@ invisible(lapply(seq_along(Elist), \(.x) Tlong[, (paste0("E", names(Elist)[.x]))
 # SsE <- c(paste0("E", names(Elist)), "EDS")
 # two previous lines are commented by adding MIMIS to Elist, so EMIMIS = EDS
 # and
-SsE <- paste0("E", names(Elist))
+# SsE <- paste0("E", names(Elist))
 
 # Comparisons will be made between three different stressor exposure counts: 
 # EMIMIS = daily stressors (general, COVID-19, population-specific), 
 # ELE = life event count, 
 # EC = and a combined score of daily stressors and life events (combined mean z-scores of stressor counts)
 # Then
-SsE <- c("EMIMIS", "ELE")
-Tlong[, EC := rowMeans2(scale(as.matrix(.SD[, c("EMIMIS", "ELE"), with = FALSE])))] 
+SsE <- c("EDH", "ELE")
+
+# averaging a la Veer, following RESPOND Statistical Analysis Protocol, version 4.0
+Tlong[, EC := rowMeans2(scale(as.matrix(.SD[, SsE, with = FALSE])))] 
 SsE <- c(SsE, "EC")
 
 
@@ -106,24 +108,48 @@ SsE <- c(SsE, "EC")
 normalf <- gaussian()
 # normal stressor reactivity is the regression line of average mental health problems against average stressor exposure across all time points
 # not only sliding time windows consisting specifically of three time points (Kalisch et al., 2021, Time Courses of Stressor Reactivity) [wave <= 3]
-nsrdata <- Tlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(SsE, "phq_ads"), by = .(Castor_Record_ID)]
+nsrdata <- na.omit(Tlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(SsE, "phq_ads"), by = .(Castor_Record_ID)])
 
-# Kalisch averaging method for EC
-# nsrdata[, EC := rowMeans2(scale(as.matrix(.SD[, c("EMIMIS", "ELE"), with = FALSE])))] 
-# SsE <- c(SsE, "EC")
+SRforml <- lapply(SsE, reformulate, response = "phq_ads")
+sSRforml <- lapply(paste0("scale(",SsE,")"), reformulate, response = "scale(phq_ads)")
+SRforml[[length(SRforml) + 1]] <- as.formula("phq_ads ~ EDH + ELE")
+nsrl <- lapply(SRforml, lm, data = nsrdata[, -c("Castor_Record_ID")])
+snsrl <- lapply(sSRforml, lm, data = nsrdata[, -c("Castor_Record_ID")])
+# examine explained variance
+do.call(what = \(...) anova(..., test = "F"), args = nsrl)
+sapply(nsrl, \(.x) summary(.x)[["r.squared"]])
 
-SRform <- lapply(SsE, reformulate, response = "phq_ads")
-nsr <- lapply(SRform, lm, data = nsrdata[, -c("Castor_Record_ID")])
+# SRformq <- lapply(paste0("poly(",SsE,", 2)"), reformulate, response = "phq_ads")
+# SRformq[[length(SRformq) + 1]] <- as.formula("phq_ads ~ poly(EDH, 2) + poly(ELE, 2)")
+# nsrq <- lapply(SRformq, lm, data = nsrdata[, -c("Castor_Record_ID")])
+# do.call(what = \(...) anova(..., test = "F"), args = nsrq)
+# sapply(nsrq, \(.x) summary(.x)[["r.squared"]])
+
+# do.call(what = anova, args = c(nsrl,nsrq))
+
+
+# If the combined score explains more variance in the PHQ-ADS, 
+# it will be used for the subsequent computation of the SR score, 
+# else the separate exposure scores will be used (resulting in two separate SR scores, 
+# expressing reactivity to daily hassles and to life events, respectively)
+
+# The daily hassles exposure score explains more variance in the PHQ-ADS, so two separate SR scores will be used.
+
+nsr <- nsrl[-length(nsrl)]
+
 names(nsr) <- SsE
 
 ### Individual Stressor Reactivity score ----------------------------------------------------------------------
 
 
 # one’s individual SR score at any time point is the distance of an individual’s P score to the regression line (a subject’s residual)
-# SR scores will be computed for each time point
+# SR scores will be computed for each time point. 
+# The inverse of the SR score is considered an approximative index of outcome-based resilience.
+invisible(lapply(SsE, \(.x) Tlong[, (paste0("SR_", .x)) := phq_ads - predict(nsr[[.x]], Tlong)][, (paste0("RES_", .x)) := predict(nsr[[.x]], Tlong) - phq_ads]))
 
-invisible(lapply(SsE, \(.x) Tlong[, (paste0("SR_", .x)) := phq_ads - predict(nsr[[.x]], Tlong)]))
-
+# If the combined score explains more variance in the PHQ-ADS, it will be used for the subsequent computation of the SR score, 
+# else the separate exposure scores will be used (resulting in two separate SR scores, expressing reactivity to daily hassles and to life events, respectively).
+# The inverse of the SR score is considered an approximative index of outcome-based resilience.
 
 ## Primary/Secondary outcomes description ----------------------------------
 
