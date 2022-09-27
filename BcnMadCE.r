@@ -81,9 +81,6 @@ invisible(lapply(seq_along(Elist), \(.x) Tlong[, (paste0("E", names(Elist)[.x]))
 # Tlong[, EDS := rowSums2(as.matrix(.SD[, unlist(Elist[-match("LE", names(Elist))]), with = FALSE]))
 #       ][, EC := rowMeans2(scale(as.matrix(.SD[, c("EDS", "ELE"), with = FALSE])))] 
 
-# count method for all (does have it sense???, having DS and LE distinct raiting scales)
-# Tlong[, `:=` (EDS = rowSums2(as.matrix(.SD[, unlist(Elist[-match("LE", names(Elist))]), with = FALSE])),
-#               EC = rowSums2(as.matrix(.SD[, unlist(Elist), with = FALSE])))]
 
 # same without defining EC
 # Tlong[, EDS := rowSums2(as.matrix(.SD[, unlist(Elist[-match("LE", names(Elist))]), with = FALSE]))]
@@ -92,23 +89,35 @@ invisible(lapply(seq_along(Elist), \(.x) Tlong[, (paste0("E", names(Elist)[.x]))
 # and
 SsE <- paste0("E", names(Elist))
 
+# Comparisons will be made between three different stressor exposure counts: 
+# EMIMIS = daily stressors (general, COVID-19, population-specific), 
+# ELE = life event count, 
+# EC = and a combined score of daily stressors and life events (combined mean z-scores of stressor counts)
+# Then
+SsE <- c("EMIMIS", "ELE")
+
 ### Normal Stressor Reactivity ----------------------------------------------------------------------
 
 normalf <- gaussian()
+# normal stressor reactivity is the regression line of average mental health problems against average stressor exposure across all time points
+# not only sliding time windows consisting specifically of three time points (Kalisch et al., 2021, Time Courses of Stressor Reactivity) [wave <= 3]
 nsrdata <- Tlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(SsE, "phq_ads"), by = .(Castor_Record_ID)]
 
-# Kalisch averaging method for EC (maybe should it be applied also to EDS here???)
+# Kalisch averaging method for EC
 nsrdata[, EC := rowMeans2(scale(as.matrix(.SD[, c("EMIMIS", "ELE"), with = FALSE])))] 
 SsE <- c(SsE, "EC")
 
 SRform <- lapply(SsE, reformulate, response = "phq_ads")
 nsr <- lapply(SRform, lm, data = nsrdata[, -c("Castor_Record_ID")])
 names(nsr) <- SsE
-invisible(lapply(SsE, \(.x) nsrdata[, (paste0(.x, "_phqads")) := predict(nsr[[.x]], nsrdata)]))
-
-
+# invisible(lapply(SsE, \(.x) nsrdata[, (paste0(.x, "_phqads")) := predict(nsr[[.x]], nsrdata)][, (paste0("SR_", .x)) := phq_ads - predict(nsr[[.x]], nsrdata)]))
 
 ### Individual Stressor Reactivity score ----------------------------------------------------------------------
+
+
+
+
+
 
 srTlong <- merge(Tlong, nsrdata, by = "Castor_Record_ID", all = TRUE, sort = FALSE, suffixes = c("", "_nsr"))
 
