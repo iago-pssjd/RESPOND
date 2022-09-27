@@ -95,6 +95,11 @@ SsE <- paste0("E", names(Elist))
 # EC = and a combined score of daily stressors and life events (combined mean z-scores of stressor counts)
 # Then
 SsE <- c("EMIMIS", "ELE")
+Tlong[, EC := rowMeans2(scale(as.matrix(.SD[, c("EMIMIS", "ELE"), with = FALSE])))] 
+SsE <- c(SsE, "EC")
+
+
+
 
 ### Normal Stressor Reactivity ----------------------------------------------------------------------
 
@@ -104,8 +109,8 @@ normalf <- gaussian()
 nsrdata <- Tlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(SsE, "phq_ads"), by = .(Castor_Record_ID)]
 
 # Kalisch averaging method for EC
-nsrdata[, EC := rowMeans2(scale(as.matrix(.SD[, c("EMIMIS", "ELE"), with = FALSE])))] 
-SsE <- c(SsE, "EC")
+# nsrdata[, EC := rowMeans2(scale(as.matrix(.SD[, c("EMIMIS", "ELE"), with = FALSE])))] 
+# SsE <- c(SsE, "EC")
 
 SRform <- lapply(SsE, reformulate, response = "phq_ads")
 nsr <- lapply(SRform, lm, data = nsrdata[, -c("Castor_Record_ID")])
@@ -115,6 +120,7 @@ names(nsr) <- SsE
 
 
 # one’s individual SR score at any time point is the distance of an individual’s P score to the regression line (a subject’s residual)
+# SR scores will be computed for each time point
 
 invisible(lapply(SsE, \(.x) Tlong[, (paste0("SR_", .x)) := phq_ads - predict(nsr[[.x]], Tlong)]))
 
