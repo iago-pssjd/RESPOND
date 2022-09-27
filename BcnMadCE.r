@@ -47,7 +47,7 @@ load(paste0(data_add, "../target/BcnMadCE/CEdata.rdata"))
 ## Stressor Reactivity ----------------------------------------------------------------------
 
 DH <- grep("^(?!le).*LIR", enTlong, value = TRUE, perl = TRUE) # negative lookbehind
-DH <- sub("^([a-z_0-9]+) .*$", "\\1", MIMIS)
+DH <- sub("^([a-z_0-9]+) .*$", "\\1", DH)
 
 LE <- grep("^le.*LIR", enTlong, value = TRUE, perl = TRUE) #  general life events (n=3)
 LE <- sub("^([a-z_0-9]+) .*$", "\\1", LE)
@@ -135,8 +135,8 @@ sapply(nsrl, \(.x) summary(.x)[["r.squared"]])
 
 # The daily hassles exposure score explains more variance in the PHQ-ADS, so two separate SR scores will be used.
 
-nsr <- nsrl[-length(nsrl)]
-
+nsrdata <- Tlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(SsE, "phq_ads"), by = .(Castor_Record_ID)]
+nsr <- lapply(SRforml[-length(SRforml)], lm, data = nsrdata[, -c("Castor_Record_ID")])
 names(nsr) <- SsE
 
 ### Individual Stressor Reactivity score ----------------------------------------------------------------------
@@ -151,9 +151,10 @@ invisible(lapply(SsE, \(.x) Tlong[, (paste0("SR_", .x)) := phq_ads - predict(nsr
 # else the separate exposure scores will be used (resulting in two separate SR scores, expressing reactivity to daily hassles and to life events, respectively).
 # The inverse of the SR score is considered an approximative index of outcome-based resilience.
 
-## Primary/Secondary outcomes description ----------------------------------
+## Summaries ----------------------------------
 
 
+### First approximation ----------------------------------
 outcomes <- c("phq_ads" = "phq9_0|gad7_", "phq9" = "phq9_0", "gad7" = "gad7_", "ptsd" = "pcl5_")
 ST1 <- rbindlist(lapply(seq_along(outcomes), \(.x){
   out <- names(outcomes)[.x]
@@ -210,3 +211,9 @@ na.omit(eTlong, cols = "phq_ads") |>
   labs(x = "time")
 
 
+## Primary/Secondary outcomes description ----------------------------------
+
+
+
+contOutcomes <- c("phq_ads", "phq9", "gad7", "ptsd", "passc", "eq5d5l_6", grep("^csri_sp", names(Tlong), value = TRUE))
+catOutcomes <- c(grep("^m_T1_CSRI_SP|(?i)^eq5d5l_[12345]", names(Tlong), value = TRUE))
