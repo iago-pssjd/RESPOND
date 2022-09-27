@@ -116,6 +116,8 @@ names(nsr) <- SsE
 
 # one’s individual SR score at any time point is the distance of an individual’s P score to the regression line (a subject’s residual)
 
+invisible(lapply(SsE, \(.x) Tlong[, (paste0("SR_", .x)) := phq_ads - predict(nsr[[.x]], Tlong)]))
+
 
 ## Primary/Secondary outcomes description ----------------------------------
 
