@@ -63,9 +63,9 @@ ST1 <- rbindlist(lapply(seq_along(outcomes), \(.x){
             lower = t.test(.SD[[out]])$conf.int[1], 
             upper = t.test(.SD[[out]])$conf.int[2],
             pval = t.test(.SD[[out]])$p.value,
-            alpha = cronbachs_alpha(.SD[, -out, with = FALSE])), 
+            alpha = cronbachs_alpha(sapply(.SD[, -out, with = FALSE], \(.y) as.numeric(.y) - 1))), 
         by = .(wave), 
-        .SDcols = patterns(paste0("^((",outcomes[.x],")\\d|",names(outcomes)[.x],"$)"))]
+        .SDcols = patterns(paste0("^((",outcomes[.x],")\\d|", out,"$)"))]
 }))
 
 

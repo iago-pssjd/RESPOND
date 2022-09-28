@@ -63,7 +63,7 @@ setnames(metadata, \(.x) sub("Option ", "", .x))
 
 
 val2name <- split(metadata, by = "var", keep.by = FALSE)
-invisible(lapply(val2name, \(.x) .x[, name := factor(name)]))
+invisible(lapply(val2name, \(.x) .x[, name := factor(name, levels = name)]))
 
 for(var in names(val2name)){
   Tlong[val2name[[var]], on = paste0(var, "==value"), name := i.name]
