@@ -1,4 +1,7 @@
 # BcnMadCEdata_wran.r
+# from BcnMadCEdata_arr.r
+# to BcnMadCEdata_SR.r
+
 
 # Data directory ----------------------------------------------------------
 
@@ -113,10 +116,7 @@ setcolorder(items, "var", before = "Variable name")
 # uniqueN(items, by = c("var", "Step name")) == uniqueN(items, by = c("var"))
 # unique(items[, .(var, `Step name`)], by = c("var", "Step name"))[order(var)] |> utils::View()
 items <- items[`Survey name` != "MASTER"]
-items <- unique(items[, .(var, `Step name`)])
-
-
-
+items <- unique(items[, .(var, `Step name`, `Optiongroup name`)])
 
 # previous arrangements to melting data
 screening[, `:=` (Randomized_On = as.POSIXct(Randomized_On))]
@@ -145,6 +145,20 @@ MTlong <- na.omit(MTlong, cols = "Survey_Completed_On")
 
 Tlong <- rbind(Tlong, MTlong)
 screening <- rbind(screening, Mscreening)
+setkey(Tlong, Castor_Record_ID, wave)
+
+
+
+
+
+
+
+
+
+
+
+
+
 # names(Tlong)[names(Tlong) %in% items$var] |> identical(items[var != "eq5d5l_remark"]$var)
 # names(Tlong)[names(Tlong) %in% items$var] <- paste0(names(Tlong)[names(Tlong) %in% items$var], " [", items[var != "eq5d5l_remark"]$`Step name`,"]")
 enTlong <- paste0(names(Tlong)[names(Tlong) %in% items$var], " [", items[var != "eq5d5l_remark"]$`Step name`,"]")
@@ -157,6 +171,10 @@ Tlong[, phq9 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^phq9_0\\d")
       ][, ptsd := rowSums2(as.matrix(.SD)), .SDcols = patterns("^pcl5_\\d")
       ][, phq_ads := phq9 + gad7
       ][, passc := rowSums2(as.matrix(.SD)), .SDcols = patterns("passc_\\d+")]
+
+
+
+
 
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
