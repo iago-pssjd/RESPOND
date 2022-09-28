@@ -25,6 +25,8 @@ if(Sys.info()["sysname"] == "Linux"){
 
 library(ggplot2)
 library(performance)
+library(formattable)
+library(compareGroups)
 library(car)
 library(systemfit)
 library(matrixStats)
@@ -109,5 +111,36 @@ na.omit(eTlong, cols = "phq_ads") |>
 
 
 
-contOutcomes <- c("phq_ads", "phq9", "gad7", "ptsd", "passc", "eq5d5l_6", grep("^csri_sp", names(Tlong), value = TRUE))
-catOutcomes <- c(grep("^m_T1_CSRI_SP|(?i)^eq5d5l_[12345]", names(Tlong), value = TRUE))
+contOutcomes <- c("phq_ads", "phq9", "gad7", "ptsd", "passc", "eq5d5l_6", grep("^(csri_sp|RES_E)", names(Tlong), value = TRUE))
+catOutcomes <- c(grep("^(m_T1_CSRI_SP|btq_\\d+$|covid19_)|(?i)^eq5d5l_[12345]", names(Tlong), value = TRUE))
+
+
+
+eT1 <- Tlong[, unlist(lapply(.SD, \(.x) {
+                             stpv <- shapiro.test(.x)$p.value
+                             .x <- as.numeric(.x)
+                             list(stpv = fifelse(stpv < 0.05, 
+                                                 paste0("Non normal: Shapiro-Wilk test p-value = ", formatC(stpv, digits = 3, flag = "#", format = "g")),
+                                                 paste0("Normal: Shapiro-Wilk test p-value = ", formatC(stpv, digits = 3, format = "f"))),
+                                  nm = sum(!is.na(.x)),
+                                  min = min(.x, na.rm = TRUE),
+                                  max = max(.x, na.rm = TRUE),
+                                  mean = mean(.x, na.rm = TRUE),
+                                  sd = sd(.x, na.rm = TRUE),
+                                  median = median(.x, na.rm = TRUE),
+                                  Q1 = quantile(.x, probs = 0.25, na.rm = TRUE),
+                                  Q3 = quantile(.x, probs = 0.75, na.rm = TRUE))}), 
+                      recursive = FALSE), 
+             by = .(wave),
+             .SDcols = contOutcomes]
+
+
+(Tcont <- melt(eT1, measure.vars = measure(outcome, value.name, pattern = "(^.*)\\.([a-zA-Z0-9]*)")))
+
+formattable(Tcont,
+            list(area(row = 1:14, col = c("min", "max", "median")) ~ as.integer,
+                 area(row = 1:14, col = c("Q1", "Q3", "mean", "sd")) ~ comma,
+                 area(row = 15:17, col = min:Q3) ~ comma,
+                 stpv = formatter("span", style = ~ style(color = fifelse(grepl("^Non normal", stpv), "red", "green")))))
+
+
