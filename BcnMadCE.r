@@ -166,3 +166,5 @@ setorder(Tcont, -outcome, measure)
 # 		 stpv = formatter("span", style = ~ style(color = fifelse(grepl("^Non normal", stpv), "red", "green")))))
 # 
 
+
+fwrite(Tcont, file = paste0(data_add, "../target/BcnMadCE/results/desc.csv"))
