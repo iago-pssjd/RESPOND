@@ -43,10 +43,12 @@ load(paste0(data_add, "../target/BcnMadCE/CEdata2.rdata"))
 
 
 
-# Analysis ----------------------------------------------------------------
+# Data preparation  ----------------------------------------------------------------
 
-
+Tlong[, `:=` (phq9_depression = factor(phq9 >= 10), gad7_anxiety = factor(gad7 >= 10))]
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
+
+# Analysis  ----------------------------------------------------------------
 
 ## Summaries ----------------------------------
 
@@ -114,13 +116,14 @@ ggplot(aes(x = factor(wave), y = phq_ads, colour = Randomization_Group)) +
 
 intOutcomes <- c("phq_ads", "phq9", "gad7", "ptsd", "passc", "eq5d5l_6")
 contOutcomes <- c(intOutcomes, grep("^(csri_sp|RES_E)", names(Tlong), value = TRUE))
-catOutcomes <- c(grep("^(m_T1_CSRI_SP|btq_\\d+$|covid19_)|(?i)^eq5d5l_[12345]", names(Tlong), value = TRUE))
+c2dOutcomes <- c("phq9_depression", "gad7_anxiety")
+catOutcomes <- c(c2dOutcomes, grep("^(m_T1_CSRI_SP|btq_\\d+$|covid19_)|(?i)^eq5d5l_[12345]", names(Tlong), value = TRUE))
 
 
 
 
-eT1 <- Tlong[, unlist(lapply(.SD, \(.x) {
-				     stpv <- shapiro.test(.x)$p.value
+eT1 <- eTlong[, unlist(lapply(.SD, \(.x) {
+				     stpv <- tryCatch(shapiro.test(.x), error = function(e) ifelse(grepl("all 'x' values are identical", e), list(p.value = 1), e))$p.value
 				     .x <- as.numeric(.x)
 				     list(stpv0 = stpv,
 					  stpv = fifelse(stpv < 0.05, 
@@ -138,16 +141,24 @@ eT1 <- Tlong[, unlist(lapply(.SD, \(.x) {
 					  Q1 = quantile(.x, probs = 0.25, na.rm = TRUE),
 					  Q3 = quantile(.x, probs = 0.75, na.rm = TRUE))}), 
 		      recursive = FALSE), 
-               by = .(wave),
+               by = .(wave, Randomization_Group),
 	       .SDcols = contOutcomes]
+
+
+
 
 
 (Tcont <- melt(eT1, measure.vars = measure(outcome, value.name, pattern = "(^.*)\\.([a-zA-Z0-9]*)")))
 
-Tcont[, `:=` (`mean (sd) [CI]` = paste0(formatC(mean, digits  = 3, format = "f"), " (", formatC(sd, digits = 3, format = "f"),") [",formatC(lower, digits = 3, format = "f"), ",", formatC(upper, digits = 3, format = "f"), "]"),
-	      `median (Q1,Q3) [min,max]` = paste0(formatC(median, digits = 2, format = "f"), "(",
-						  formatC(Q1, digits = 2, format = "f"), ",",
-						  formatC(Q3, digits = 2, format = "f"), ") [",
+cols <- c("mean", "sd", "lower", "upper")
+Tcont[, (cols) := lapply(.SD, \(.x) formatC(.x, digits = 3, format = "f")), .SDcols = cols]
+cols <- c("median", "Q1", "Q3")
+Tcont[, (cols) := lapply(.SD, \(.x) formatC(.x, digits = 2, format = "f")), .SDcols = cols]
+
+Tcont[, `:=` (`mean (sd) [CI]` = paste0(mean, " (", sd,") [", lower, ",", upper, "]"),
+	      `median (Q1,Q3) [min,max]` = paste0(median, "(",
+						  Q1, ",",
+						  Q3, ") [",
 						  fifelse(outcome %in% intOutcomes, formatC(min, format = "d"), formatC(min, digits = 2, format = "f")),
 						  ",",
 						  fifelse(outcome %in% intOutcomes, formatC(max, format = "d"), formatC(max, digits = 2, format = "f")),
@@ -156,10 +167,41 @@ Tcont[, `:=` (`mean (sd) [CI]` = paste0(formatC(mean, digits  = 3, format = "f")
 	   `number of subjects (n)` = formatC(nm, format = "d"),
 	   `Shapiro-Wilk test p-value` = formatC(stpv0, digits = 3, format = "g"))]
 
-Tcont <- dcast(melt(Tcont, id.vars = c("wave", "outcome"), measure.vars = grep("\\(|-", names(Tcont)), variable.name = "measure"), outcome + measure ~ wave, value.var = "value")
+Tcont <- dcast(melt(Tcont, id.vars = c("wave", "Randomization_Group", "outcome"), measure.vars = grep("\\(|-", names(Tcont)), variable.name = "measure"), outcome + measure ~ wave + Randomization_Group, value.var = "value")
 
 setorder(Tcont, -outcome, measure)
 
+
+
+
+
+
+
+eT2 <- rbindlist(lapply(catOutcomes, \(.x){
+			 setnames(eTlong[,.N, by = c(.x, "wave", "Randomization_Group")][, outcome := .x], old = .x, new = "measure")
+				     }))
+setcolorder(eT2, "outcome")
+eT2[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome, wave, Randomization_Group)
+    ][, Np := paste0(N, " (", formatC(p, digits = 2, format = "f"), "%)")]
+setorder(eT2, outcome, Randomization_Group, wave, measure)
+Tcat <- dcast(eT2, outcome + measure ~ wave + Randomization_Group, value.vars = c("Np"), fill = "0 (0.00%)")
+
+
+
+
+
+
+NpwG <- dcast(eTlong[, .N, by = .(wave, Randomization_Group)], . ~ wave + Randomization_Group, value.var = "N")
+setnames(NpwG, old = ".", new = "outcome")
+NpwG$outcome <- NpwG$measure <- "N"
+setcolorder(NpwG, "measure", after = "outcome")
+
+
+
+
+
+NpwG <- rbind(NpwG, Tcont, Tcat)
+setorder(NpwG, outcome, measure)
 # formattable(Tcont,
 # 	    list(area(row = 1:14, col = c("min", "max", "median")) ~ as.integer,
 # 		 area(row = 1:14, col = c("Q1", "Q3", "mean", "sd")) ~ comma,
@@ -168,4 +210,4 @@ setorder(Tcont, -outcome, measure)
 # 
 
 
-fwrite(Tcont, file = paste0(data_add, "../target/BcnMadCE/results/desc.csv"))
+fwrite(NpwG, file = paste0(data_add, "../target/BcnMadCE/results/descriptives.csv"))
