@@ -73,6 +73,7 @@ for(var in names(val2name)){
 
 
 
+eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
 
 save(Tdata, MTdata, Tlong, enTlong, screening, eTlong, file = paste0(data_add, "../target/BcnMadCE/CEdata2.rdata"))

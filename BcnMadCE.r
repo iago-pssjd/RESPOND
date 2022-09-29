@@ -46,6 +46,7 @@ load(paste0(data_add, "../target/BcnMadCE/CEdata2.rdata"))
 # Analysis ----------------------------------------------------------------
 
 
+eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
 ## Summaries ----------------------------------
 
