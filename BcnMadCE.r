@@ -110,6 +110,67 @@ ggplot(aes(x = factor(wave), y = phq_ads, colour = Randomization_Group)) +
 	labs(x = "time")
 
 
+
+## Characteristics ---------------------------------------------------------
+
+NpwF <- eTlong[wave == 1, .(Overall = .N)]
+NpwF[, `:=` (outcome = "N", measure = "N")]
+setcolorder(NpwF, c("outcome", "measure"))
+
+NpwG <- dcast(eTlong[wave == 1, .N, by = .(Randomization_Group)], . ~ Randomization_Group, value.var = "N")
+setnames(NpwG, old = ".", new = "outcome")
+NpwG$outcome <- NpwG$measure <- "N"
+setcolorder(NpwG, "measure", after = "outcome")
+
+Npw <- NpwF[NpwG, on = .(outcome, measure)]
+
+
+eTlong[, `:=` (age = 2022 - t0_soc_02, 
+               to_soc_covid19 = fifelse(covid19_1 == "No", FALSE, TRUE), 
+               t0_soc_site = fifelse(Institute_Abbreviation == "SJD", "Bcn", "Mad"))]
+
+catOutcomes <- c("t0_soc_01", "t0_soc_12", "t0_soc_16", "t0_soc_17", "t0_soc_18", "to_soc_covid19", "t0_soc_site")
+
+
+eT1F <- eTlong[wave == 1, .(m_age = mean(age, na.rm = TRUE), sd_age = sd(age, na.rm = TRUE))]
+eT1F[, `:=` (outcome = "age", 
+             measure = "mean (sd)", 
+             Overall = paste0(formatC(m_age, digits = 2, format = "f"), " (", formatC(sd_age, digits = 3, format = "f"),")"))]
+eT1F <- eT1F[, .(outcome, measure, Overall)]
+eT1G <- eTlong[wave == 1, .(m_age = mean(age, na.rm = TRUE), sd_age = sd(age, na.rm = TRUE)), by = .(Randomization_Group)]
+eT1G[, `:=` (age = paste0(formatC(m_age, digits = 2, format = "f"), "(", formatC(sd_age, digits = 3, format = "f"),")"))]
+eT1G <- dcast(eT1G, . ~ Randomization_Group, value.var = "age")
+setnames(eT1G, old = ".", new = "outcome")
+eT1G[, `:=` (outcome = "age", measure = "mean (sd)")]
+setcolorder(eT1G, "measure", after = "outcome")
+eT1s <- eT1F[eT1G, on = .(outcome, measure)]
+
+
+
+eT1lF <- rbindlist(lapply(catOutcomes, \(.x){
+  setnames(eTlong[wave == 1,.N, by = c(.x)][, outcome := .x], old = .x, new = "measure")
+}))
+setcolorder(eT1lF, "outcome")
+eT1lF[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome)
+      ][, `:=` (Np = paste0(N, " (", formatC(p, digits = 2, format = "f"), "%)"),
+                Randomization_Group = "Overall")]
+setorder(eT1lF, outcome, measure)
+
+eT1lG <- rbindlist(lapply(catOutcomes, \(.x){
+  setnames(eTlong[wave == 1,.N, by = c(.x, "Randomization_Group")][, outcome := .x], old = .x, new = "measure")
+}))
+setcolorder(eT1lG, "outcome")
+eT1lG[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome, Randomization_Group)
+][, Np := paste0(N, " (", formatC(p, digits = 2, format = "f"), "%)")]
+setorder(eT1lG, outcome, Randomization_Group, measure)
+
+eT1l <- dcast(rbind(eT1lF,eT1lG)[, Randomization_Group := factor(Randomization_Group, levels = c("Overall", "Control", "Intervention"))], outcome + measure ~ Randomization_Group, value.var = c("Np"), fill = "0 (0.00%)")
+
+
+characteristics <- rbind(Npw, eT1s, eT1l)
+fwrite(characteristics, file = paste0(data_add, "../target/BcnMadCE/results/characteristicsT1.csv"))
+
+
 ## Primary/Secondary outcomes description ----------------------------------
 
 
@@ -122,7 +183,7 @@ catOutcomes <- c(c2dOutcomes, grep("^(m_T1_CSRI_SP|btq_\\d+$|covid19_)|(?i)^eq5d
 
 
 
-eT1 <- eTlong[, unlist(lapply(.SD, \(.x) {
+eT2s <- eTlong[, unlist(lapply(.SD, \(.x) {
 				     stpv <- tryCatch(shapiro.test(.x), error = function(e) ifelse(grepl("all 'x' values are identical", e), list(p.value = 1), e))$p.value
 				     .x <- as.numeric(.x)
 				     list(stpv0 = stpv,
@@ -148,11 +209,11 @@ eT1 <- eTlong[, unlist(lapply(.SD, \(.x) {
 
 
 
-(Tcont <- melt(eT1, measure.vars = measure(outcome, value.name, pattern = "(^.*)\\.([a-zA-Z0-9]*)")))
+(Tcont <- melt(eT2s, measure.vars = measure(outcome, value.name, pattern = "(^.*)\\.([a-zA-Z0-9]*)")))
 
-cols <- c("mean", "sd", "lower", "upper")
-Tcont[, (cols) := lapply(.SD, \(.x) formatC(.x, digits = 3, format = "f")), .SDcols = cols]
-cols <- c("median", "Q1", "Q3")
+cols <- c("mean", "lower", "upper")
+Tcont[, (cols) := lapply(.SD, \(.x) formatC(.x, digits = 1, format = "f")), .SDcols = cols]
+cols <- c("median", "Q1", "Q3", "sd")
 Tcont[, (cols) := lapply(.SD, \(.x) formatC(.x, digits = 2, format = "f")), .SDcols = cols]
 
 Tcont[, `:=` (`mean (sd) [CI]` = paste0(mean, " (", sd,") [", lower, ",", upper, "]"),
@@ -177,14 +238,14 @@ setorder(Tcont, -outcome, measure)
 
 
 
-eT2 <- rbindlist(lapply(catOutcomes, \(.x){
+eT2l <- rbindlist(lapply(catOutcomes, \(.x){
 			 setnames(eTlong[,.N, by = c(.x, "wave", "Randomization_Group")][, outcome := .x], old = .x, new = "measure")
 				     }))
-setcolorder(eT2, "outcome")
-eT2[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome, wave, Randomization_Group)
-    ][, Np := paste0(N, " (", formatC(p, digits = 2, format = "f"), "%)")]
-setorder(eT2, outcome, Randomization_Group, wave, measure)
-Tcat <- dcast(eT2, outcome + measure ~ wave + Randomization_Group, value.vars = c("Np"), fill = "0 (0.00%)")
+setcolorder(eT2l, "outcome")
+eT2l[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome, wave, Randomization_Group)
+    ][, Np := paste0(N, " (", formatC(p, digits = 0, format = "f"), "%)")]
+setorder(eT2l, outcome, Randomization_Group, wave, measure)
+Tcat <- dcast(eT2l, outcome + measure ~ wave + Randomization_Group, value.var = c("Np"), fill = "0 (0.00%)")
 
 
 
@@ -208,6 +269,8 @@ setorder(NpwG, outcome, measure)
 # 		 area(row = 15:17, col = min:Q3) ~ comma,
 # 		 stpv = formatter("span", style = ~ style(color = fifelse(grepl("^Non normal", stpv), "red", "green")))))
 # 
+resultsT2 <- NpwG[(grepl("^(phq_ads|phq9|gad7|ptsd)$", outcome) & grepl("^mean", measure)) | outcome == "N" | grepl("^(phq9|gad7)_[a-z]+$", outcome)
+                  ][c(1, 9, 6, 2, 10, 7, 8, 4, 5)]
 
+fwrite(resultsT2, file = paste0(data_add, "../target/BcnMadCE/results/resultsT2.csv"))
 
-fwrite(NpwG, file = paste0(data_add, "../target/BcnMadCE/results/descriptives.csv"))
