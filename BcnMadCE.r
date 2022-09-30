@@ -150,20 +150,20 @@ eT1s <- eT1F[eT1G, on = .(outcome, measure)]
 
 
 eT1lF <- rbindlist(lapply(catOutcomes, \(.x){
-  setnames(eTlong[wave == 1,.N, by = c(.x)][, outcome := .x], old = .x, new = "measure")
+				  setnames(eTlong[wave == 1,.N, by = c(.x)][, outcome := .x], old = .x, new = "measure")
 }))
 setcolorder(eT1lF, "outcome")
 eT1lF[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome)
       ][, `:=` (Np = paste0(N, " (", formatC(p, digits = 2, format = "f"), "%)"),
-                Randomization_Group = "Overall")]
+		Randomization_Group = "Overall")]
 setorder(eT1lF, outcome, measure)
 
 eT1lG <- rbindlist(lapply(catOutcomes, \(.x){
-  setnames(eTlong[wave == 1,.N, by = c(.x, "Randomization_Group")][, outcome := .x], old = .x, new = "measure")
+				  setnames(eTlong[wave == 1,.N, by = c(.x, "Randomization_Group")][, outcome := .x], old = .x, new = "measure")
 }))
 setcolorder(eT1lG, "outcome")
 eT1lG[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome, Randomization_Group)
-][, Np := paste0(N, " (", formatC(p, digits = 2, format = "f"), "%)")]
+      ][, Np := paste0(N, " (", formatC(p, digits = 2, format = "f"), "%)")]
 setorder(eT1lG, outcome, Randomization_Group, measure)
 
 eT1l <- dcast(rbind(eT1lF,eT1lG)[, Randomization_Group := factor(Randomization_Group, levels = c("Overall", "Control", "Intervention"))], outcome + measure ~ Randomization_Group, value.var = c("Np"), fill = "0 (0.00%)")
@@ -245,7 +245,7 @@ eT2l <- rbindlist(lapply(catOutcomes, \(.x){
 				     }))
 setcolorder(eT2l, "outcome")
 eT2l[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome, wave, Randomization_Group)
-    ][, Np := paste0(N, " (", formatC(p, digits = 0, format = "f"), "%)")]
+     ][, Np := paste0(N, " (", formatC(p, digits = 0, format = "f"), "%)")]
 setorder(eT2l, outcome, Randomization_Group, wave, measure)
 Tcat <- dcast(eT2l, outcome + measure ~ wave + Randomization_Group, value.var = c("Np"), fill = "0 (0.00%)")
 
@@ -282,7 +282,7 @@ fwrite(resultsT2, file = paste0(data_add, "../target/BcnMadCE/results/resultsT2.
 ## ITT linear mixed model -------------------------------------------------------------------
 
 eTlong[, `:=` (baseline_phq_ads = phq_ads[wave == 1],
-               time = factor(wave)), 
+	       time = factor(wave)), 
        by = .(Record_Id)]
 fit0 <- lme(phq_ads ~ time + baseline_phq_ads, random = ~ 1 | Castor_Record_ID, data = Tlong, na.action = na.omit)
 fit1 <- lme(phq_ads ~ time + baseline_phq_ads + time:Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
