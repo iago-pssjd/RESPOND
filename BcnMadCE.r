@@ -29,6 +29,8 @@ library(formattable)
 library(compareGroups)
 library(car)
 library(systemfit)
+library(clubSandwich)
+library(nlme)
 library(matrixStats)
 library(data.table)
 
@@ -54,60 +56,60 @@ eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor
 
 
 ### First approximation ----------------------------------
-outcomes <- c("phq_ads" = "phq9_0|gad7_", "phq9" = "phq9_0", "gad7" = "gad7_", "ptsd" = "pcl5_")
-ST1 <- rbindlist(lapply(seq_along(outcomes), \(.x){
-				out <- names(outcomes)[.x]
-				Tlong[, .(outcome = out,
-					  avg = mean(.SD[[out]], na.rm = TRUE), 
-					  sd = sd(.SD[[out]], na.rm = TRUE),
-					  median = median(.SD[[out]], na.rm = TRUE),
-					  Q1 = quantile(.SD[[out]], probs = 0.25, na.rm = TRUE),
-					  Q3 = quantile(.SD[[out]], probs = 0.75, na.rm = TRUE),
-					  max = max(.SD[[out]], na.rm = TRUE),
-					  min = min(.SD[[out]], na.rm = TRUE), 
-					  lower = t.test(.SD[[out]])$conf.int[1], 
-					  upper = t.test(.SD[[out]])$conf.int[2],
-					  pval = t.test(.SD[[out]])$p.value,
-					  alpha = cronbachs_alpha(sapply(.SD[, -out, with = FALSE], \(.y) as.numeric(.y) - 1))), 
-			by = .(wave), 
-			.SDcols = patterns(paste0("^((",outcomes[.x],")\\d|", out,"$)"))]
-}))
-
-
-melt(dcast(ST1, outcome ~ wave, value.var = names(ST1[,-c("outcome", "wave")])),
-     measure.vars = measure(coef = \(.x) factor(.x, levels = names(ST1[,-c("outcome", "wave")])), 
-			    value.name, pattern = "^([a-zA-Z0-9]+)_([1234])$"))[order(outcome, coef)]
+# outcomes <- c("phq_ads" = "phq9_0|gad7_", "phq9" = "phq9_0", "gad7" = "gad7_", "ptsd" = "pcl5_")
+# ST1 <- rbindlist(lapply(seq_along(outcomes), \(.x){
+# 				out <- names(outcomes)[.x]
+# 				Tlong[, .(outcome = out,
+# 					  avg = mean(.SD[[out]], na.rm = TRUE), 
+# 					  sd = sd(.SD[[out]], na.rm = TRUE),
+# 					  median = median(.SD[[out]], na.rm = TRUE),
+# 					  Q1 = quantile(.SD[[out]], probs = 0.25, na.rm = TRUE),
+# 					  Q3 = quantile(.SD[[out]], probs = 0.75, na.rm = TRUE),
+# 					  max = max(.SD[[out]], na.rm = TRUE),
+# 					  min = min(.SD[[out]], na.rm = TRUE), 
+# 					  lower = t.test(.SD[[out]])$conf.int[1], 
+# 					  upper = t.test(.SD[[out]])$conf.int[2],
+# 					  pval = t.test(.SD[[out]])$p.value,
+# 					  alpha = cronbachs_alpha(sapply(.SD[, -out, with = FALSE], \(.y) as.numeric(.y) - 1))), 
+# 			by = .(wave), 
+# 			.SDcols = patterns(paste0("^((",outcomes[.x],")\\d|", out,"$)"))]
+# }))
+# 
+# 
+# melt(dcast(ST1, outcome ~ wave, value.var = names(ST1[,-c("outcome", "wave")])),
+#      measure.vars = measure(coef = \(.x) factor(.x, levels = names(ST1[,-c("outcome", "wave")])), 
+# 			    value.name, pattern = "^([a-zA-Z0-9]+)_([1234])$"))[order(outcome, coef)]
 
 
 ### Similar per institution or group ----------------------------------------
 
 
 
-eTlong[order(Randomization_Group, wave), .(avg_phq_ads = mean(phq_ads, na.rm = TRUE)), by = .(wave, Randomization_Group)]
-
-eS1 <- eTlong[order(Institute_Abbreviation, Randomization_Group, wave), 
-	      unlist(lapply(.SD, \(.x) list(mean = mean(.x, na.rm = TRUE),
-					    sd = sd(.x, na.rm = TRUE),
-					    median = median(.x, na.rm = TRUE),
-					    Q1 = quantile(.x, probs = 0.25, na.rm = TRUE),
-					    Q3 = quantile(.x, probs = 0.75, na.rm = TRUE),
-					    max = max(.x, na.rm = TRUE),
-					    min = min(.x, na.rm = TRUE))), 
-		     rec = FALSE), 
-              by = .(Institute_Abbreviation), .SDcols = c("phq_ads", "phq9", "gad7")]
-
-melt(eS1, measure.vars = measure(outcome, value.name, pattern = "(^.*)\\.([a-zA-Z0-9]*)"))
-
-eTlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c("phq_ads"), by = .(wave, Randomization_Group)] |> 
-ggplot(aes(x = wave, y = phq_ads, colour = Randomization_Group)) +
-	geom_line()
-
-na.omit(eTlong, cols = "phq_ads") |> 
-ggplot(aes(x = factor(wave), y = phq_ads, colour = Randomization_Group)) +
-	stat_summary(aes(group = Randomization_Group), geom = "line", fun = mean) +
-	stat_summary(aes(group = Randomization_Group), geom = "point", fun = mean) +
-	stat_boxplot(geom = "errorbar", position = "identity", width = 0.25) +
-	labs(x = "time")
+# eTlong[order(Randomization_Group, wave), .(avg_phq_ads = mean(phq_ads, na.rm = TRUE)), by = .(wave, Randomization_Group)]
+# 
+# eS1 <- eTlong[order(Institute_Abbreviation, Randomization_Group, wave), 
+# 	      unlist(lapply(.SD, \(.x) list(mean = mean(.x, na.rm = TRUE),
+# 					    sd = sd(.x, na.rm = TRUE),
+# 					    median = median(.x, na.rm = TRUE),
+# 					    Q1 = quantile(.x, probs = 0.25, na.rm = TRUE),
+# 					    Q3 = quantile(.x, probs = 0.75, na.rm = TRUE),
+# 					    max = max(.x, na.rm = TRUE),
+# 					    min = min(.x, na.rm = TRUE))), 
+# 		     rec = FALSE), 
+#               by = .(Institute_Abbreviation), .SDcols = c("phq_ads", "phq9", "gad7")]
+# 
+# melt(eS1, measure.vars = measure(outcome, value.name, pattern = "(^.*)\\.([a-zA-Z0-9]*)"))
+# 
+# eTlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c("phq_ads"), by = .(wave, Randomization_Group)] |> 
+# ggplot(aes(x = wave, y = phq_ads, colour = Randomization_Group)) +
+# 	geom_line()
+# 
+# na.omit(eTlong, cols = "phq_ads") |> 
+# ggplot(aes(x = factor(wave), y = phq_ads, colour = Randomization_Group)) +
+# 	stat_summary(aes(group = Randomization_Group), geom = "line", fun = mean) +
+# 	stat_summary(aes(group = Randomization_Group), geom = "point", fun = mean) +
+# 	stat_boxplot(geom = "errorbar", position = "identity", width = 0.25) +
+# 	labs(x = "time")
 
 
 
@@ -273,4 +275,36 @@ resultsT2 <- NpwG[(grepl("^(phq_ads|phq9|gad7|ptsd)$", outcome) & grepl("^mean",
                   ][c(1, 9, 6, 2, 10, 7, 8, 4, 5)]
 
 fwrite(resultsT2, file = paste0(data_add, "../target/BcnMadCE/results/resultsT2.csv"))
+
+
+
+
+## ITT linear mixed model -------------------------------------------------------------------
+
+eTlong[, `:=` (baseline_phq_ads = phq_ads[wave == 1],
+               time = factor(wave)), 
+       by = .(Record_Id)]
+fit0 <- lme(phq_ads ~ time + baseline_phq_ads, random = ~ 1 | Castor_Record_ID, data = Tlong, na.action = na.omit)
+fit1 <- lme(phq_ads ~ time + baseline_phq_ads + time*Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
+# summary(fit1)
+# intervals(fit1)
+# deltaMethod(fit1, "Randomization_GroupIntervention")
+vcCR <- vcovCR(fit1, type = "CR2")
+# coef_test(fit1, vcov = vcCR)
+conf_int(fit1, vcov = vcCR)
+
+
+# library(sandwich)
+# library(merDeriv)
+# library(lme4)
+# fit14 <- lmer(phq_ads ~ time + time*Randomization_Group + (1 | Record_Id), data = eTlong)
+# fixef(fit14)
+# confint(fit14)
+# sandwich(fit14)
+# 
+# library(robustlmm)
+# rfit14 <- rlmer(phq_ads ~ time + time*Randomization_Group + (1 | Record_Id), data = eTlong)
+# summary(rfit14)
+# fixef(rfit14)
+
 
