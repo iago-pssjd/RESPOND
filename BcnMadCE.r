@@ -284,7 +284,7 @@ fwrite(resultsT2, file = paste0(data_add, "../target/BcnMadCE/results/resultsT2.
 eTlong[, `:=` (baseline_phq_ads = phq_ads[wave == 1],
 	       time = factor(wave)), 
        by = .(Record_Id)]
-fit0 <- lme(phq_ads ~ time + baseline_phq_ads, random = ~ 1 | Castor_Record_ID, data = Tlong, na.action = na.omit)
+fit0 <- lme(phq_ads ~ time + baseline_phq_ads, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
 fit1 <- lme(phq_ads ~ time + baseline_phq_ads + time:Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
 fit11 <- lme(phq_ads ~ time + time*Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
 # summary(fit1)
