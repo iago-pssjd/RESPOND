@@ -22,13 +22,16 @@ if(Sys.info()["sysname"] == "Linux"){
 # Libraries ---------------------------------------------------------------
 
 
-
-library(ggplot2)
-library(performance)
-library(formattable)
-library(compareGroups)
-library(car)
-library(systemfit)
+# library(marginaleffects)
+# library(modelsummary)
+# library(ggplot2)
+# library(performance)
+# library(formattable)
+# library(compareGroups)
+# library(car)
+# library(systemfit)
+# library(emmeans)
+library(multcomp)
 library(clubSandwich)
 library(nlme)
 library(matrixStats)
@@ -48,6 +51,8 @@ load(paste0(data_add, "../target/BcnMadCE/CEdata2.rdata"))
 # Data preparation  ----------------------------------------------------------------
 
 Tlong[, `:=` (phq9_depression = factor(phq9 >= 10), gad7_anxiety = factor(gad7 >= 10))]
+cols <- c("Randomization_Group", "Institute_Abbreviation")
+screening[, (cols) := lapply(.SD, factor), .SDcols = cols]
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
 
@@ -60,6 +65,8 @@ eTlong[, aux := NULL][, aux := phq_ads[wave==4], by = .(Record_Id)][, aux := is.
 eTlong[, aux := NULL][, aux := as.integer(difftime(Survey_Completed_On, Survey_Completed_On[wave==1], units = "days")), by = .(Record_Id)][, .(median(aux)), by = .(Randomization_Group, Institute_Abbreviation, wave)][, V2 := V1[Randomization_Group == "Intervention"] - V1[Randomization_Group == "Control"], by = .(Institute_Abbreviation, wave)][wave != 1][order(Institute_Abbreviation, wave, Randomization_Group)]
 eTlong[sbs_1 == "Sí"][, .(Record_Id, Institute_Abbreviation, wave)]
 eTlong[, .N, by = .(wave, Institute_Abbreviation, Randomization_Group)][, miss := N[wave == 1] - N, by = .(Institute_Abbreviation, Randomization_Group)][, p := miss/N[wave == 1]*100, by = .(Institute_Abbreviation, Randomization_Group)][wave != 1][order(wave, -Institute_Abbreviation, -Randomization_Group)]
+rbindlist(lapply(2:4, \(.wave) eTlong[, aux := NULL][, aux := phq_ads[wave == .wave], by = .(Record_Id)][, aux := is.na(aux)][wave==1, .N, by = .(aux, Institute_Abbreviation, Randomization_Group)][, p := 100* N/sum(N), by = .(Institute_Abbreviation, Randomization_Group)][aux == TRUE][order(-Institute_Abbreviation, -Randomization_Group)]))
+
 
 eTlong[wave == 1 & Institute_Abbreviation == "SJD" & Randomization_Group == "Control" & !Record_Id %in% eTlong[wave == 3]$Record_Id]$Record_Id
 
@@ -332,8 +339,9 @@ fit1 <- lme(phq_ads ~ time + baseline_phq_ads + time:Randomization_Group, random
 
 #### Robust reproducibility tests -------------------------------------------------------------
 
-
+# https://sandwich.r-forge.r-project.org/articles/sandwich.html
 # library(sandwich) # sandwich
+# library(lmtest) # coefci
 # library(merDeriv) # estfun.lmerMod, bread.lmerMod
 # library(lme4)
 # library(robustlmm) # rlmer
@@ -357,6 +365,24 @@ fit1 <- lme(phq_ads ~ time + baseline_phq_ads + time:Randomization_Group, random
 
 ### Repdroduction analyses -------------------------------------------------------------
 
-fit11 <- lme(phq_ads ~ time*Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
-intervals(fit11)[["fixed"]]
+fit11 <- lme(phq_ads ~ time + time:Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
+fit14 <- lmer(phq_ads ~ time + time:Randomization_Group + (1 | Record_Id), data = eTlong)
+cbind(fixef(fit14), confint(fit14)[-c(1,2),])
+intervals(fit11)[["fixed"]][-1,]
 summary(fit11)
+K <- cbind(matrix(0, 4, 4), diag(4))
+rownames(K) <- paste0("Intervention - Control | time", 1:4)
+colnames(K) <- names(fixef(fit11))
+confint(glht(fit11, linfct = K))
+# fit1RG <- emmeans(fit14, "Randomization_Group")
+# pairs(fit1RG) # extend glht results
+# # eff_size(fit1RG, sigma = sigma(fit14), edf = 434) # does not work
+# comparisons(fit14, variables = list(Randomization_Group = "pairwise"), by = "time") # extend glht results
+
+
+rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) cbind(data.table(outcome = .x), intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit))[["fixed"]][-1, ])))
+# models <- lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit))
+# modelsummary(models = models[[1]], estimate = "{estimate} ({conf.low}, {conf.high})", statistic = NULL, gof_map = "nobs")
+
+# Per-Protocol PP
+eTlong[Randomization_Group == "Control" | Record_Id %in% eTlong[, .N, by = .(Record_Id)][N==4]$Record_Id][, unique(.SD[, .(Record_Id, Randomization_Group)])][, .N, by = .(Randomization_Group)]
