@@ -61,6 +61,8 @@ eTlong[, aux := NULL][, aux := as.integer(difftime(Survey_Completed_On, Survey_C
 eTlong[sbs_1 == "Sí"][, .(Record_Id, Institute_Abbreviation, wave)]
 eTlong[, .N, by = .(wave, Institute_Abbreviation, Randomization_Group)][, miss := N[wave == 1] - N, by = .(Institute_Abbreviation, Randomization_Group)][, p := miss/N[wave == 1]*100, by = .(Institute_Abbreviation, Randomization_Group)][wave != 1][order(wave, -Institute_Abbreviation, -Randomization_Group)]
 
+eTlong[wave == 1 & Institute_Abbreviation == "SJD" & Randomization_Group == "Control" & !Record_Id %in% eTlong[wave == 3]$Record_Id]$Record_Id
+
 # Analysis  ----------------------------------------------------------------
 
 ## Summaries ----------------------------------
@@ -308,34 +310,53 @@ fwrite(resultsT2, file = paste0(data_add, "../target/BcnMadCE/results/resultsT2.
 
 ## ITT linear mixed model -------------------------------------------------------------------
 
+
+### First tests -------------------------------------------------------------
+
+
 eTlong[, `:=` (baseline_phq_ads = phq_ads[wave == 1],
 	       time = factor(wave)), 
        by = .(Record_Id)]
+
 fit0 <- lme(phq_ads ~ time + baseline_phq_ads, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
+fit01 <- lme(phq_ads ~ time, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
 fit1 <- lme(phq_ads ~ time + baseline_phq_ads + time:Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
-fit11 <- lme(phq_ads ~ time + time*Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
+
 # summary(fit1)
-# intervals(fit1)
-# deltaMethod(fit1, "Randomization_GroupIntervention")
-vcCR <- vcovCR(fit11, type = "CR2")
-# coef_test(fit1, vcov = vcCR)
-conf_int(fit11, vcov = vcCR)
+# intervals(fit1) # nlme
+# vcCR <- vcovCR(fit1, type = "CR2") # clubSandwich
+# coef_test(fit1, vcov = vcCR) # clubSandwich
+# conf_int(fit1, vcov = vcCR) # clubSandwich
+
+### Looking for reproducibility tests -------------------------------------------------------------
+
+#### Robust reproducibility tests -------------------------------------------------------------
 
 
-# library(sandwich)
-# library(merDeriv)
+# library(sandwich) # sandwich
+# library(merDeriv) # estfun.lmerMod, bread.lmerMod
 # library(lme4)
+# library(robustlmm) # rlmer
+
 # fit14 <- lmer(phq_ads ~ time*Randomization_Group + (1 | Record_Id), data = eTlong)
 # cbind(fixef(fit14), confint(fit14)[-c(1,2),])
-# sandwich(fit14)
+# vcCR <- vcovCR(fit14, type = "CR2")
+# conf_int(fit14, vcov = vcCR)
+# sandwich(fit14) # sandwich, merDeriv
 # 
-# library(robustlmm)
-# rfit14 <- rlmer(phq_ads ~ time + time*Randomization_Group + (1 | Record_Id), data = eTlong)
+# rfit14 <- rlmer(phq_ads ~ time + time*Randomization_Group + (1 | Record_Id), data = eTlong) # robustlmm
 # summary(rfit14)
 # fixef(rfit14)
 
+#### (Non-mixed-effects) Linear models reproducibility tests -------------------------------------------------------------
+
 # fit11 <- lm(phq_ads ~ time*Randomization_Group, data = eTlong, na.action = na.omit)
 # cbind(coef(fit11), confint(fit11))
-# vcHC <- vcov(fit11, type = "HC")
-# cbind(coef(fit11), coefci(fit11, vcov = vcHC))
+# vcHC <- vcovHC(fit11, type = "HC")
+# cbind(coef(fit11), coefci(fit11, vcov = vcHC)) # lmtest
 
+### Repdroduction analyses -------------------------------------------------------------
+
+fit11 <- lme(phq_ads ~ time*Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
+intervals(fit11)[["fixed"]]
+summary(fit11)
