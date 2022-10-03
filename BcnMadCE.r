@@ -50,6 +50,17 @@ load(paste0(data_add, "../target/BcnMadCE/CEdata2.rdata"))
 Tlong[, `:=` (phq9_depression = factor(phq9 >= 10), gad7_anxiety = factor(gad7 >= 10))]
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
+
+
+
+# Data view ---------------------------------------------------------------
+
+eTlong[, aux := NULL][, aux := phq_ads[wave==4], by = .(Record_Id)][, aux := is.na(aux)][wave==1, .N, by = .(aux, t0_soc_01)][, p := 100* N/sum(N), by = .(t0_soc_01)][aux == TRUE]
+eTlong[, aux := NULL][, aux := phq_ads[wave==4], by = .(Record_Id)][, aux := is.na(aux)][wave==1, .N, by = .(aux, t0_soc_16)][, p := 100* N/sum(N), by = .(t0_soc_16)][aux == TRUE]
+eTlong[, aux := NULL][, aux := as.integer(difftime(Survey_Completed_On, Survey_Completed_On[wave==1], units = "days")), by = .(Record_Id)][, .(median(aux)), by = .(Randomization_Group, Institute_Abbreviation, wave)][, V2 := V1[Randomization_Group == "Intervention"] - V1[Randomization_Group == "Control"], by = .(Institute_Abbreviation, wave)][wave != 1][order(Institute_Abbreviation, wave, Randomization_Group)]
+eTlong[sbs_1 == "Sí"][, .(Record_Id, Institute_Abbreviation, wave)]
+eTlong[, .N, by = .(wave, Institute_Abbreviation, Randomization_Group)][, miss := N[wave == 1] - N, by = .(Institute_Abbreviation, Randomization_Group)][, p := miss/N[wave == 1]*100, by = .(Institute_Abbreviation, Randomization_Group)][wave != 1][order(wave, -Institute_Abbreviation, -Randomization_Group)]
+
 # Analysis  ----------------------------------------------------------------
 
 ## Summaries ----------------------------------
@@ -193,6 +204,7 @@ eT2s <- eTlong[, unlist(lapply(.SD, \(.x) {
 							 paste0("Non normal: Shapiro-Wilk test p-value = ", formatC(stpv, digits = 3, flag = "#", format = "g")),
 							 paste0("Normal: Shapiro-Wilk test p-value = ", formatC(stpv, digits = 3, format = "f"))),
 					  nm = sum(!is.na(.x)),
+					  miss = sum(is.na(.x)),
 					  min = min(.x, na.rm = TRUE),
 					  max = max(.x, na.rm = TRUE),
 					  mean = mean(.x, na.rm = TRUE),
@@ -228,9 +240,10 @@ Tcont[, `:=` (`mean (sd) [CI]` = paste0(mean, " (", sd,") [", lower, ",", upper,
 						  "]"
 						  ),
 	   `number of subjects (n)` = formatC(nm, format = "d"),
+	   `Missing` = formatC(miss, format = "d"),
 	   `Shapiro-Wilk test p-value` = formatC(stpv0, digits = 3, format = "g"))]
 
-Tcont <- dcast(melt(Tcont, id.vars = c("wave", "Randomization_Group", "outcome"), measure.vars = grep("\\(|-", names(Tcont)), variable.name = "measure"), outcome + measure ~ wave + Randomization_Group, value.var = "value")
+Tcont <- dcast(melt(Tcont, id.vars = c("wave", "Randomization_Group", "outcome"), measure.vars = grep("\\(|-|Missing", names(Tcont)), variable.name = "measure"), outcome + measure ~ wave + Randomization_Group, value.var = "value")
 
 setorder(Tcont, -outcome, measure)
 
@@ -248,22 +261,36 @@ eT2l[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), b
      ][, Np := paste0(N, " (", formatC(p, digits = 0, format = "f"), "%)")]
 setorder(eT2l, outcome, Randomization_Group, wave, measure)
 Tcat <- dcast(eT2l, outcome + measure ~ wave + Randomization_Group, value.var = c("Np"), fill = "0 (0.00%)")
+cols <- grep("outcome|measure", names(Tcat), invert = TRUE, value = TRUE)
+Tcat[, `:=` (measure = factor(fifelse(is.na(measure), "Missing", as.character(measure)), levels = c(levels(Tcat$measure), "Missing")))][, (cols) := lapply(.SD, \(.x) fifelse(measure == "Missing", sub(" \\(.*$", "", .x), .x)), .SDcols = cols]
 
 
 
 
 
+NpwG <- dcast(melt(eTlong[, .N, by = .(wave, Randomization_Group)][, Missing := N[wave == 1] - N, by = .(Randomization_Group)][], measure.vars = c("N", "Missing"), variable.name = "measure"), measure ~ wave + Randomization_Group, value.var = "value")
+NpwG[, outcome := measure]
+setcolorder(NpwG, "outcome")
 
-NpwG <- dcast(eTlong[, .N, by = .(wave, Randomization_Group)], . ~ wave + Randomization_Group, value.var = "N")
-setnames(NpwG, old = ".", new = "outcome")
-NpwG$outcome <- NpwG$measure <- "N"
-setcolorder(NpwG, "measure", after = "outcome")
+misscont <- Tcont[, unique(.SD[measure == "Missing", .(outcome, measure)])]
+misscat <- Tcat[, unique(.SD[measure == "Missing", .(outcome, measure)])]
+misscat <- rbind(misscat, data.table(outcome = "phq9_depression", measure = "Missing"))
+NpwG <- NpwG[c(1, 2, rep(2, nrow(misscont)), rep(2, nrow(misscat)))][3:(2 + nrow(misscont)), outcome := misscont$outcome][(3 + nrow(misscont)):(2 + nrow(misscont) + nrow(misscat)), outcome := misscat$outcome][]
+
+
+# NpwG <- dcast(eTlong[, .N, by = .(wave, Randomization_Group)], . ~ wave + Randomization_Group, value.var = "N")
+# setnames(NpwG, old = ".", new = "outcome")
+# NpwG$outcome <- NpwG$measure <- "N"
+# setcolorder(NpwG, "measure", after = "outcome")
 
 
 
 
 
 NpwG <- rbind(NpwG, Tcont, Tcat)
+cols <- grep("outcome|measure", names(NpwG), invert = TRUE, value = TRUE)
+NpwG[measure == "Missing", (cols) := lapply(.SD, \(.x) as.character(sum(as.integer(.x)))), by = .(outcome, measure), .SDcols = cols]
+NpwG <- NpwG[, unique(.SD)]
 setorder(NpwG, outcome, measure)
 # formattable(Tcont,
 # 	    list(area(row = 1:14, col = c("min", "max", "median")) ~ as.integer,
@@ -271,8 +298,8 @@ setorder(NpwG, outcome, measure)
 # 		 area(row = 15:17, col = min:Q3) ~ comma,
 # 		 stpv = formatter("span", style = ~ style(color = fifelse(grepl("^Non normal", stpv), "red", "green")))))
 # 
-resultsT2 <- NpwG[(grepl("^(phq_ads|phq9|gad7|ptsd)$", outcome) & grepl("^mean", measure)) | outcome == "N" | grepl("^(phq9|gad7)_[a-z]+$", outcome)
-                  ][c(1, 9, 6, 2, 10, 7, 8, 4, 5)]
+resultsT2 <- NpwG[(grepl("^(phq_ads|phq9|gad7|ptsd)$", outcome) & grepl("^(mean|Missing)", measure)) | outcome == "N" | grepl("^(phq9|gad7)_[a-z]+$", outcome)
+                  ][c(1, 5, 4, 7, 6, 9, 8, 3, 2, 14, 15, 13, 11, 12, 10)]
 
 fwrite(resultsT2, file = paste0(data_add, "../target/BcnMadCE/results/resultsT2.csv"))
 

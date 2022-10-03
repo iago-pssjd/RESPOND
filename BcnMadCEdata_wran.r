@@ -119,9 +119,11 @@ items <- items[`Survey name` != "MASTER"]
 items <- unique(items[, .(var, `Step name`, `Optiongroup name`)])
 
 # previous arrangements to melting data
-screening[, `:=` (Randomized_On = as.POSIXct(Randomized_On))]
+cols <- c("Randomized_On", "Record_Creation_Date")
+screening[, (cols) := lapply(.SD, as.POSIXct, format = "%d/%m/%Y %k:%M"), .SDcols = cols]
 T1[, `:=` (t1_csri_sp_off_heath_t = as.numeric(t1_csri_sp_off_heath_t))]
 T4[, `:=` (t4_m_T1_CSRI_SP_nurse_g_t = as.integer(t4_m_T1_CSRI_SP_nurse_g_t), t4_csri_sp_off_heath_t = as.numeric(t4_csri_sp_off_heath_t))]
+Mscreening[, `:=` (Record_Creation_Date = as.POSIXct(Record_Creation_Date, format = "%d-%m-%Y %H:%M:%S"))]
 MT3[, `:=` (t3_m_T1_CSRI_SP_mental_g_t = as.integer(t3_m_T1_CSRI_SP_mental_g_t))]
 
 T12 <- merge(T1, T2, all = TRUE)
@@ -137,11 +139,12 @@ MTdata <- merge(MT12, MT34, all = TRUE)
 Tlong <- melt(Tdata, 
 	      measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(?<!t1_t[01]_)(.*)"))
 Tlong <- na.omit(Tlong, cols = "Survey_Completed_On")
-
+Tlong[, `:=` (Survey_Completed_On = as.POSIXct(Survey_Completed_On, format = "%d/%m/%Y %k:%M"))]
 
 MTlong <- melt(MTdata, 
 	       measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(?<!t1_t[01]_)(.*)"))
 MTlong <- na.omit(MTlong, cols = "Survey_Completed_On")
+MTlong[, `:=` (Survey_Completed_On = as.POSIXct(Survey_Completed_On, format = "%d-%m-%Y %H:%M:%S"))]
 
 Tlong <- rbind(Tlong, MTlong)
 screening <- rbind(screening, Mscreening)
