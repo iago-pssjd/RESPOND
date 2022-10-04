@@ -152,6 +152,8 @@ setkey(Tlong, Castor_Record_ID, wave)
 
 
 
+cols <- c("Randomization_Group", "Institute_Abbreviation")
+screening[, (cols) := lapply(.SD, factor), .SDcols = cols]
 
 
 

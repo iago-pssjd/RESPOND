@@ -51,8 +51,6 @@ load(paste0(data_add, "../target/BcnMadCE/CEdata2.rdata"))
 # Data preparation  ----------------------------------------------------------------
 
 Tlong[, `:=` (phq9_depression = factor(phq9 >= 10), gad7_anxiety = factor(gad7 >= 10))]
-cols <- c("Randomization_Group", "Institute_Abbreviation")
-screening[, (cols) := lapply(.SD, factor), .SDcols = cols]
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
 
