@@ -58,13 +58,31 @@ eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor
 
 # Data view ---------------------------------------------------------------
 
+
+
 eTlong[, aux := NULL][, aux := phq_ads[wave==4], by = .(Record_Id)][, aux := is.na(aux)][wave==1, .N, by = .(aux, t0_soc_01)][, p := 100* N/sum(N), by = .(t0_soc_01)][aux == TRUE]
 eTlong[, aux := NULL][, aux := phq_ads[wave==4], by = .(Record_Id)][, aux := is.na(aux)][wave==1, .N, by = .(aux, t0_soc_16)][, p := 100* N/sum(N), by = .(t0_soc_16)][aux == TRUE]
-eTlong[, aux := NULL][, aux := as.integer(difftime(Survey_Completed_On, Survey_Completed_On[wave==1], units = "days")), by = .(Record_Id)][, .(median(aux)), by = .(Randomization_Group, Institute_Abbreviation, wave)][, V2 := V1[Randomization_Group == "Intervention"] - V1[Randomization_Group == "Control"], by = .(Institute_Abbreviation, wave)][wave != 1][order(Institute_Abbreviation, wave, Randomization_Group)]
+
+eTlong[, aux := NULL][, aux := as.integer(difftime(Survey_Completed_On, Survey_Completed_On[wave==1], units = "days")), by = .(Record_Id)
+		      ][, .(median(aux)), by = .(Randomization_Group, Institute_Abbreviation, wave)
+		      ][, V2 := V1[Randomization_Group == "Intervention"] - V1[Randomization_Group == "Control"], by = .(Institute_Abbreviation, wave)
+		      ][wave != 1
+		      ][order(Institute_Abbreviation, wave, Randomization_Group)]
+
 eTlong[sbs_1 == "Sí"][, .(Record_Id, Institute_Abbreviation, wave)]
-eTlong[, .N, by = .(wave, Institute_Abbreviation, Randomization_Group)][, miss := N[wave == 1] - N, by = .(Institute_Abbreviation, Randomization_Group)][, p := miss/N[wave == 1]*100, by = .(Institute_Abbreviation, Randomization_Group)][wave != 1][order(wave, -Institute_Abbreviation, -Randomization_Group)]
+
+eTlong[, .N, by = .(wave, Institute_Abbreviation, Randomization_Group)
+       ][, miss := N[wave == 1] - N, by = .(Institute_Abbreviation, Randomization_Group)
+       ][, p := miss/N[wave == 1]*100, by = .(Institute_Abbreviation, Randomization_Group)
+       ][wave != 1
+       ][order(wave, -Institute_Abbreviation, -Randomization_Group)]
+
 rbindlist(lapply(2:4, \(.wave) eTlong[, aux := NULL][, aux := phq_ads[wave == .wave], by = .(Record_Id)][, aux := is.na(aux)][wave==1, .N, by = .(aux, Institute_Abbreviation, Randomization_Group)][, p := 100* N/sum(N), by = .(Institute_Abbreviation, Randomization_Group)][aux == TRUE][order(-Institute_Abbreviation, -Randomization_Group)]))
-eTlong[, .(miss = sum(is.na(phq_ads)), .N), by = .(wave, Institute_Abbreviation, Randomization_Group)][, `:=` (miss = N[wave == 1] - N + miss, p = (N[wave == 1] - N + miss)*100/N[wave == 1]), by = .(Institute_Abbreviation, Randomization_Group)][wave != 1][order(wave, -Institute_Abbreviation, -Randomization_Group)]
+
+eTlong[, .(miss = sum(is.na(phq_ads)), .N), by = .(wave, Institute_Abbreviation, Randomization_Group)
+       ][, `:=` (miss = N[wave == 1] - N + miss, p = (N[wave == 1] - N + miss)*100/N[wave == 1]), by = .(Institute_Abbreviation, Randomization_Group)
+       ][wave != 1
+       ][order(wave, -Institute_Abbreviation, -Randomization_Group)]
 
 eTlong[wave == 1 & Institute_Abbreviation == "SJD" & Randomization_Group == "Control" & !Record_Id %in% eTlong[wave == 3]$Record_Id]$Record_Id
 
@@ -378,7 +396,9 @@ confint(glht(fit11, linfct = K))
 # comparisons(fit14, variables = list(Randomization_Group = "pairwise"), by = "time") # extend glht results
 
 
-rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) cbind(data.table(outcome = .x), intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit))[["fixed"]][-1, ])))
+rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
+		 cbind(data.table(outcome = .x), 
+		       intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit))[["fixed"]][-1, ])))
 # models <- lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit))
 # modelsummary(models = models[[1]], estimate = "{estimate} ({conf.low}, {conf.high})", statistic = NULL, gof_map = "nobs")
 
