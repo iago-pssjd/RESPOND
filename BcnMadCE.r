@@ -64,7 +64,7 @@ eTlong[, aux := NULL][, aux := as.integer(difftime(Survey_Completed_On, Survey_C
 eTlong[sbs_1 == "Sí"][, .(Record_Id, Institute_Abbreviation, wave)]
 eTlong[, .N, by = .(wave, Institute_Abbreviation, Randomization_Group)][, miss := N[wave == 1] - N, by = .(Institute_Abbreviation, Randomization_Group)][, p := miss/N[wave == 1]*100, by = .(Institute_Abbreviation, Randomization_Group)][wave != 1][order(wave, -Institute_Abbreviation, -Randomization_Group)]
 rbindlist(lapply(2:4, \(.wave) eTlong[, aux := NULL][, aux := phq_ads[wave == .wave], by = .(Record_Id)][, aux := is.na(aux)][wave==1, .N, by = .(aux, Institute_Abbreviation, Randomization_Group)][, p := 100* N/sum(N), by = .(Institute_Abbreviation, Randomization_Group)][aux == TRUE][order(-Institute_Abbreviation, -Randomization_Group)]))
-
+eTlong[, .(miss = sum(is.na(phq_ads)), .N), by = .(wave, Institute_Abbreviation, Randomization_Group)][, `:=` (miss = N[wave == 1] - N + miss, p = (N[wave == 1] - N + miss)*100/N[wave == 1]), by = .(Institute_Abbreviation, Randomization_Group)][wave != 1][order(wave, -Institute_Abbreviation, -Randomization_Group)]
 
 eTlong[wave == 1 & Institute_Abbreviation == "SJD" & Randomization_Group == "Control" & !Record_Id %in% eTlong[wave == 3]$Record_Id]$Record_Id
 
@@ -381,6 +381,13 @@ confint(glht(fit11, linfct = K))
 rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) cbind(data.table(outcome = .x), intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit))[["fixed"]][-1, ])))
 # models <- lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit))
 # modelsummary(models = models[[1]], estimate = "{estimate} ({conf.low}, {conf.high})", statistic = NULL, gof_map = "nobs")
+
+esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) eTlong[wave != 1, unlist(.(outcome = .x, (effectsize::cohens_d(reformulate("Randomization_Group", response = .x), data = .SD))), recursive = FALSE), by = .(wave)][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(wave, outcome)][, Cohens_d := paste0(Cohens_d, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Cohens_d)]
+esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  eTlong[wave != 1, unlist(.(outcome = .x, (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), recursive = FALSE), by = .(wave)][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
+esLOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  eTlong[wave != 1, unlist(.(outcome = .x, (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), recursive = FALSE), by = .(wave)][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)][, log_Odds_ratio := paste0(log_Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, log_Odds_ratio)]
+effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLOR))[order(wave, outcome)]
+
+
 
 # Per-Protocol PP
 eTlong[Randomization_Group == "Control" | Record_Id %in% eTlong[, .N, by = .(Record_Id)][N==4]$Record_Id][, unique(.SD[, .(Record_Id, Randomization_Group)])][, .N, by = .(Randomization_Group)]

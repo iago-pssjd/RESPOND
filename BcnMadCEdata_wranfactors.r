@@ -26,6 +26,7 @@ if(Sys.info()["sysname"] == "Linux"){
 
 library(matrixStats)
 library(data.table)
+library(openxlsx)
 
 # Data loading --------------------------------------------------------------
 
@@ -33,10 +34,11 @@ library(data.table)
 load(paste0(data_add, "../target/BcnMadCE/CEdataSR.rdata"))
 items <- fread(paste0(data_add, "BcnMadCE/survey_variablelist.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
 fields <- fread(paste0(data_add, "BcnMadCE/field_options.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
+pmMad <- fread(paste0(data_add, "BcnMadCE/MadData/pm_attendance.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
+pmBcn <- read.xlsx(paste0(data_add, "BcnMadCE/BcnData/Num sesiones PM.xlsx"))
+dwm <- fread(paste0(data_add, "BcnMadCE/Respond Aid Workers_user_activity_06-09-2022 12 14 46.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
 
-
-
-# Pre-operations --------------------------------------------------------------
+# Operations --------------------------------------------------------------
 
 
 items <- items[, .(`Survey name`, `Step name`, `Variable name`, `Optiongroup name`, `Field label`)]
@@ -72,6 +74,15 @@ for(var in names(val2name)){
 }
 
 
+
+setnames(pmBcn, old = names(pmBcn), new = c("Record_Id", "pmN"))
+setnames(pmMad, old = names(pmMad), new = c("Record_Id", "pmN"))
+
+pmp <- rbind(pmMad, pmBcn)
+
+pmp[, Record_Id := gsub(" ", "", Record_Id)]
+
+screening <- merge(screening, pmp, all = TRUE)
 
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
