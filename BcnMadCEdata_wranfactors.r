@@ -82,7 +82,7 @@ pmp <- rbind(pmMad, pmBcn)
 pmp[, Record_Id := gsub(" ", "", Record_Id)]
 
 dwm[, researchID := gsub("^UAM", "ES-UAM", gsub("UAM(\\d{4})","UAM-\\1", researchID))][, dwmN := rowSums2(as.matrix(.SD)), .SDcols = `finished: Grounding`:`finished: Making room`]
-dwm <- dwm[grepl("^ES-(UAM|SJD)-\\d{4}$", researchID), .(researchID, dwmN)]
+dwm <- unique(dwm[grepl("^ES-(UAM|SJD)-\\d{4}$", researchID), .(researchID, dwmN)], by = "researchID") # second row of ES-SJD-0049 is all 0
 
 
 
