@@ -36,7 +36,8 @@ items <- fread(paste0(data_add, "BcnMadCE/survey_variablelist.csv"), encoding = 
 fields <- fread(paste0(data_add, "BcnMadCE/field_options.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
 pmMad <- fread(paste0(data_add, "BcnMadCE/MadData/pm_attendance.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
 pmBcn <- read.xlsx(paste0(data_add, "BcnMadCE/BcnData/Num sesiones PM.xlsx"))
-dwm <- fread(paste0(data_add, "BcnMadCE/Respond Aid Workers_user_activity_06-09-2022 12 14 46.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
+dwmMad <- fread(paste0(data_add, "BcnMadCE/MadData/Respond Aid Workers_user_activity_06-09-2022 12 14 46.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
+dwmBcn <- fread(paste0(data_add, "BcnMadCE/BcnData/Meta-data app_v2_BCN.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
 
 # Operations --------------------------------------------------------------
 
@@ -81,11 +82,11 @@ setnames(pmMad, old = names(pmMad), new = c("Record_Id", "pmN"))
 pmp <- rbind(pmMad, pmBcn)
 pmp[, Record_Id := gsub(" ", "", Record_Id)]
 
-dwm[, researchID := gsub("^UAM", "ES-UAM", gsub("UAM(\\d{4})","UAM-\\1", researchID))][, dwmN := rowSums2(as.matrix(.SD)), .SDcols = `finished: Grounding`:`finished: Making room`]
-dwm <- unique(dwm[grepl("^ES-(UAM|SJD)-\\d{4}$", researchID), .(researchID, dwmN)], by = "researchID") # second row of ES-SJD-0049 is all 0
-
-
-
+dwmMad[, researchID := gsub("^UAM", "ES-UAM", researchID)][, dwmN := rowSums2(as.matrix(.SD)), .SDcols = `finished: Grounding`:`finished: Making room`] # "ES-UAM-0001" is a control
+dwmMad <- dwmMad[grepl("^ES-UAM-\\d{4}$", researchID), .(researchID, dwmN)]
+dwmBcn[grepl("ES-SJD-\\d{4}", researchID), researchID := gsub(" ", "", researchID)][, dwmN := rowSums2(as.matrix(.SD)), .SDcols = `finished: Grounding`:`finished: Making room`]
+dwmBcn <- unique(dwmBcn[grepl("^ES-SJD-\\d{4}$", researchID), .(researchID, dwmN)])
+dwm <- rbind(dwmBcn, dwmMad)
 
 screening <- merge(screening, pmp, all = TRUE)
 screening <- merge(screening, dwm, all = TRUE, by.x = "Record_Id", by.y = "researchID")
