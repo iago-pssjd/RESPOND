@@ -79,10 +79,16 @@ setnames(pmBcn, old = names(pmBcn), new = c("Record_Id", "pmN"))
 setnames(pmMad, old = names(pmMad), new = c("Record_Id", "pmN"))
 
 pmp <- rbind(pmMad, pmBcn)
-
 pmp[, Record_Id := gsub(" ", "", Record_Id)]
 
+dwm[, researchID := gsub("^UAM", "ES-UAM", gsub("UAM(\\d{4})","UAM-\\1", researchID))][, dwmN := rowSums2(as.matrix(.SD)), .SDcols = `finished: Grounding`:`finished: Making room`]
+dwm <- dwm[grepl("^ES-(UAM|SJD)-\\d{4}$", researchID), .(researchID, dwmN)]
+
+
+
+
 screening <- merge(screening, pmp, all = TRUE)
+screening <- merge(screening, dwm, all = TRUE, by.x = "Record_Id", by.y = "researchID")
 
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
