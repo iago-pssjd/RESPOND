@@ -334,12 +334,14 @@ fwrite(resultsT2, file = paste0(data_add, "../target/BcnMadCE/results/resultsT2.
 ## ITT linear mixed model -------------------------------------------------------------------
 
 
-### First tests -------------------------------------------------------------
-
-
 eTlong[, `:=` (baseline_phq_ads = phq_ads[wave == 1],
 	       time = factor(wave)), 
        by = .(Record_Id)]
+
+
+### First tests -------------------------------------------------------------
+
+
 
 fit0 <- lme(phq_ads ~ time + baseline_phq_ads, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
 fit01 <- lme(phq_ads ~ time, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
@@ -443,4 +445,8 @@ rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x)
                        intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlongPP, na.action = na.omit), which = "fixed")[["fixed"]][-1, ])))
 
 ### Symptom severity sensitivity analyses -------------------------------------------------------------
-eTlong[, aux := NULL][, aux := max(phq_ads, na.rm = TRUE), by = .(Record_Id)][aux > 19][, unique(.SD[, .(Record_Id, Randomization_Group)])][, .N, by = .(Randomization_Group)]
+
+eTlong[wave == 1, aux := phq_ads >= 14][wave == 1, .N, by = .(aux, Randomization_Group)]
+
+
+
