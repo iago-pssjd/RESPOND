@@ -421,9 +421,15 @@ confint(glht(fit11, linfct = K))
 
 #### ITT -------------------------------------------------------------
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
-			    cbind(data.table(outcome = .x), 
-				  intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), which = "fixed")[["fixed"]][-1, ])))
+sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
+				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+				    ntv <- Reduce(cbind, 
+						  list(data.table(outcome = .x),  
+						       rownames(ntv), 
+						       ntv))
+				    setnames(ntv, "V2", "variable")
+				    ntv
+				     }))
 # models <- lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit))
 # modelsummary(models = models[[1]], estimate = "{estimate} ({conf.low}, {conf.high})", statistic = NULL, gof_map = "nobs")
 
