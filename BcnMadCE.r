@@ -54,6 +54,13 @@ load(paste0(data_add, "../target/BcnMadCE/CEdata2.rdata"))
 Tlong[, `:=` (phq9_depression = factor(phq9 >= 10), gad7_anxiety = factor(gad7 >= 10))]
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
+eTlong[, `:=` (age = year(Survey_Completed_On) - t0_soc_02, 
+	       to_soc_covid19 = fifelse(covid19_1 == "No", FALSE, TRUE), 
+	       t0_soc_site = fifelse(Institute_Abbreviation == "SJD", "Bcn", "Mad"))
+       ][, `:=` (baseline_phq_ads = phq_ads[wave == 1],
+		 time = factor(wave)), 
+       by = .(Record_Id)]
+
 wb <- createWorkbook() 
 
 
@@ -102,7 +109,7 @@ sheetDT <- eTlong[, .(miss = sum(is.na(phq_ads)), .N), by = .(wave, Institute_Ab
 addWorksheet(wb, sheetName = "Retention rates")
 writeData(wb, sheet = "Retention rates", sheetDT)
 
-eTlong[wave == 1 & Institute_Abbreviation == "SJD" & Randomization_Group == "Control" & !Record_Id %in% eTlong[wave == 3]$Record_Id]$Record_Id
+# eTlong[wave == 1 & Institute_Abbreviation == "SJD" & Randomization_Group == "Control" & !Record_Id %in% eTlong[wave == 3]$Record_Id]$Record_Id
 
 # Analysis  ----------------------------------------------------------------
 
@@ -181,9 +188,6 @@ setcolorder(NpwG, "measure", after = "outcome")
 Npw <- NpwF[NpwG, on = .(outcome, measure)]
 
 
-eTlong[, `:=` (age = year(Survey_Completed_On) - t0_soc_02, 
-               to_soc_covid19 = fifelse(covid19_1 == "No", FALSE, TRUE), 
-               t0_soc_site = fifelse(Institute_Abbreviation == "SJD", "Bcn", "Mad"))]
 
 catOutcomes <- c("t0_soc_01", "t0_soc_12", "t0_soc_16", "t0_soc_17", "t0_soc_18", "to_soc_covid19", "t0_soc_site")
 
@@ -352,14 +356,11 @@ fwrite(resultsT2, file = paste0(data_add, "../target/BcnMadCE/results/resultsT2.
 addWorksheet(wb, sheetName = "Table 2")
 writeData(wb, sheet = "Table 2", sheetDT)
 
+saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report.xlsx"), overwrite = TRUE)
 
 ## ITT linear mixed model -------------------------------------------------------------------
 
-
-eTlong[, `:=` (baseline_phq_ads = phq_ads[wave == 1],
-	       time = factor(wave)), 
-       by = .(Record_Id)]
-
+wb <- loadWorkbook(paste0(data_add, "../target/BcnMadCE/results/report.xlsx"))
 
 ### First tests -------------------------------------------------------------
 
@@ -421,15 +422,11 @@ confint(glht(fit11, linfct = K))
 
 #### ITT -------------------------------------------------------------
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
+sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
 				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
-				    ntv <- Reduce(cbind, 
-						  list(data.table(outcome = .x),  
-						       rownames(ntv), 
-						       ntv))
-				    setnames(ntv, "V2", "variable")
-				    ntv
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
+
 # models <- lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit))
 # modelsummary(models = models[[1]], estimate = "{estimate} ({conf.low}, {conf.high})", statistic = NULL, gof_map = "nobs")
 
@@ -482,9 +479,12 @@ writeData(wb, sheet = "Participants in PP analysis", sheetDT)
 eTlongPP <- eTlong[Randomization_Group == "Control" | (dwmN >= 3 & ((pmN >= 4 & step_up == 1) | step_up == 0))]
 
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
-			    cbind(data.table(outcome = .x), 
-				  intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongPP, na.action = na.omit), which = "fixed")[["fixed"]][-1, ])))
+
+
+sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
+				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongPP, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
 
 addWorksheet(wb, sheetName = "Models (per protocol)")
 writeData(wb, sheet = "Models (per protocol)", sheetDT)
@@ -524,18 +524,22 @@ writeData(wb, sheet = "Effect sizes (PP)", sheetDT)
 ### Sensitivity analyses per site -------------------------------------------------------------
 #### ITT -------------------------------------------------------------
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
-			    cbind(data.table(outcome = .x), 
-				  intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlong, na.action = na.omit), which = "fixed")[["fixed"]][-1, ])))
+
+sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
+				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlong, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
 
 addWorksheet(wb, sheetName = "Sensitivity - ITT nested")
 writeData(wb, sheet = "Sensitivity - ITT nested", sheetDT)
 
 #### Per-Protocol PP -------------------------------------------------------------
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
-			    cbind(data.table(outcome = .x), 
-				  intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlongPP, na.action = na.omit), which = "fixed")[["fixed"]][-1, ])))
+sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
+				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlongPP, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
 addWorksheet(wb, sheetName = "Sensitivity - PP nested")
 writeData(wb, sheet = "Sensitivity - PP nested", sheetDT)
 
@@ -547,9 +551,10 @@ addWorksheet(wb, sheetName = "Participants with severity")
 writeData(wb, sheet = "Participants with severity", sheetDT)
 
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
-			    cbind(data.table(outcome = .x), 
-				  intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongSS, na.action = na.omit), which = "fixed")[["fixed"]][-1, ])))
+sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
+				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongSS, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
 addWorksheet(wb, sheetName = "Sensitivity distressed")
 writeData(wb, sheet = "Sensitivity distressed", sheetDT)
 
@@ -582,7 +587,55 @@ sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLO
 addWorksheet(wb, sheetName = "Effect sizes distressed")
 writeData(wb, sheet = "Effect sizes distressed", sheetDT)
 
-saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report.xlsx"))
+
+### Female sensitivity analyses -------------------------------------------------------------
+
+eTlongFF <- eTlong[t0_soc_01 == "Mujer"]
+sheetDT <- eTlongFF[, .(Record_Id, Randomization_Group)][, .N, by = .(Randomization_Group)]
+addWorksheet(wb, sheetName = "Female participants")
+writeData(wb, sheet = "Female participants", sheetDT)
+
+
+
+sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
+				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongFF, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+addWorksheet(wb, sheetName = "Sensitivity - Female")
+writeData(wb, sheet = "Sensitivity - Female", sheetDT)
+
+esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
+			 eTlongFF[wave != 1, 
+				  unlist(.(outcome = .x, (effectsize::cohens_d(reformulate("Randomization_Group", response = .x), data = .SD))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Cohens_d := paste0(Cohens_d, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Cohens_d)]
+
+esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+			 eTlongFF[wave != 1, 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
+
+esLOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+			  eTlongFF[wave != 1, 
+				   unlist(.(outcome = .x, (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+					  recursive = FALSE), 
+				   by = .(wave)
+				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				   ][, log_Odds_ratio := paste0(log_Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, log_Odds_ratio)]
+
+sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLOR))[order(wave, outcome)]
+
+addWorksheet(wb, sheetName = "Effect sizes - Female")
+writeData(wb, sheet = "Effect sizes - Female", sheetDT)
+
+
+
+saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report.xlsx"), overwrite = TRUE)
 
 
 
