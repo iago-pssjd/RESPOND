@@ -430,6 +430,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
 # models <- lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit))
 # modelsummary(models = models[[1]], estimate = "{estimate} ({conf.low}, {conf.high})", statistic = NULL, gof_map = "nobs")
 
@@ -489,6 +490,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
 addWorksheet(wb, sheetName = "Models (per protocol)")
 writeData(wb, sheet = "Models (per protocol)", sheetDT)
 
@@ -534,6 +536,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				     }))
 
 
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
 addWorksheet(wb, sheetName = "Sensitivity - ITT nested")
 writeData(wb, sheet = "Sensitivity - ITT nested", sheetDT)
 
@@ -543,6 +546,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlongPP, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
 addWorksheet(wb, sheetName = "Sensitivity - PP nested")
 writeData(wb, sheet = "Sensitivity - PP nested", sheetDT)
 
@@ -558,6 +562,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongSS, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
 addWorksheet(wb, sheetName = "Sensitivity distressed")
 writeData(wb, sheet = "Sensitivity distressed", sheetDT)
 
@@ -604,6 +609,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongFF, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
 addWorksheet(wb, sheetName = "Sensitivity - Female")
 writeData(wb, sheet = "Sensitivity - Female", sheetDT)
 
@@ -648,6 +654,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + t0_soc_18 + Institute_Abbreviation + baseline_phq_ads")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
 
 addWorksheet(wb, sheetName = "Adjusted estimates")
 writeData(wb, sheet = "Adjusted estimates", sheetDT)
@@ -657,12 +664,12 @@ writeData(wb, sheet = "Adjusted estimates", sheetDT)
 
 
 
-saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report.xlsx"), overwrite = TRUE)
+saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report2.xlsx"), overwrite = TRUE)
 
 ### Complete case sensitivity analyses -------------------------------------------------------------
 
 
-wb <- loadWorkbook(paste0(data_add, "../target/BcnMadCE/results/report.xlsx"))
+wb <- loadWorkbook(paste0(data_add, "../target/BcnMadCE/results/report2.xlsx"))
 
 
 unique(eTlong[, aux := NULL][, aux := .N, by = .(Record_Id)][aux == 4][, .(Record_Id, Randomization_Group)])[, .N, by = .(Randomization_Group)]
@@ -688,10 +695,15 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 
 sheetDT <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x) { 
 				    fit <- dwmw(glmer(as.formula(paste0(.x, " ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id)")), data = eTlong, family = binomial))
-				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				    # exp(cbind(fit, confint(fit))) 
 				     }))
 
 
+sheetDT <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x) { 
+				    ntv <- exp(confint(glmmTMB(as.formula(paste0(.x, " ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id)")), data = eTlong, family = binomial)))
+				    ntv <- ntv[!grepl("\\(", rownames(ntv)),]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
 
 
 
@@ -704,7 +716,7 @@ sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patte
 sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("phq9_0|gad7_\\d")]|> psych::alpha()
 
 
-saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report.xlsx"), overwrite = TRUE)
+saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report3.xlsx"), overwrite = TRUE)
 
 
 
