@@ -431,6 +431,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				     }))
 
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
 # models <- lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit))
 # modelsummary(models = models[[1]], estimate = "{estimate} ({conf.low}, {conf.high})", statistic = NULL, gof_map = "nobs")
 
@@ -491,6 +492,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				     }))
 
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
 addWorksheet(wb, sheetName = "Models (per protocol)")
 writeData(wb, sheet = "Models (per protocol)", sheetDT)
 
@@ -537,6 +539,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 
 
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
 addWorksheet(wb, sheetName = "Sensitivity - ITT nested")
 writeData(wb, sheet = "Sensitivity - ITT nested", sheetDT)
 
@@ -547,6 +550,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
 addWorksheet(wb, sheetName = "Sensitivity - PP nested")
 writeData(wb, sheet = "Sensitivity - PP nested", sheetDT)
 
@@ -563,6 +567,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
 addWorksheet(wb, sheetName = "Sensitivity distressed")
 writeData(wb, sheet = "Sensitivity distressed", sheetDT)
 
@@ -610,6 +615,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
 addWorksheet(wb, sheetName = "Sensitivity - Female")
 writeData(wb, sheet = "Sensitivity - Female", sheetDT)
 
@@ -655,6 +661,7 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
 
 addWorksheet(wb, sheetName = "Adjusted estimates")
 writeData(wb, sheet = "Adjusted estimates", sheetDT)
@@ -664,23 +671,28 @@ writeData(wb, sheet = "Adjusted estimates", sheetDT)
 
 
 
-saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report2.xlsx"), overwrite = TRUE)
 
 ### Complete case sensitivity analyses -------------------------------------------------------------
 
 
-wb <- loadWorkbook(paste0(data_add, "../target/BcnMadCE/results/report2.xlsx"))
 
 
-unique(eTlong[, aux := NULL][, aux := .N, by = .(Record_Id)][aux == 4][, .(Record_Id, Randomization_Group)])[, .N, by = .(Randomization_Group)]
+eTlongCC <- eTlong[!is.na(phq_ads) & !is.na(ptsd)][, aux := NULL][, aux := .N, by = .(Record_Id)][aux == 4]
+sheetDT <- unique(eTlongCC[, .(Record_Id, Randomization_Group)])[, .N, by = .(Randomization_Group)]
+addWorksheet(wb, sheetName = "Complete cases")
+writeData(wb, sheet = "Complete cases", sheetDT)
 
-# eTlongCC
+
 
 sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
 				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongCC, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
 
+addWorksheet(wb, sheetName = "Sensitivity - CC")
+writeData(wb, sheet = "Sensitivity - CC", sheetDT)
 
 ### Sqrt outcomes sensitivity analyses -------------------------------------------------------------
 
@@ -690,8 +702,20 @@ sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+
+addWorksheet(wb, sheetName = "Sensitivity - SQRT")
+writeData(wb, sheet = "Sensitivity - SQRT", sheetDT)
+
+
+saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report2.xlsx"), overwrite = TRUE)
+
 
 ### Binary outcomes (logistics models) sensitivity analyses -------------------------------------------------------------
+
+wb <- loadWorkbook(paste0(data_add, "../target/BcnMadCE/results/report2.xlsx"))
+
 
 sheetDT <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x) { 
 				    fit <- dwmw(glmer(as.formula(paste0(.x, " ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id)")), data = eTlong, family = binomial))
@@ -707,13 +731,140 @@ sheetDT <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x) {
 
 
 
+
+
+### Concurrent psychotherapy sensitivity analyses -------------------------------------------------------------
+unique(eTlong[, aux := NULL][, aux := .N, by = .(Record_Id)][csri_sp_mental_g_n == 0 & csri_sp_mental_i_n == 0][, aux2 := .N, by = .(Record_Id)][aux == aux2][, .(Record_Id, Randomization_Group)])[, .N, by = .(Randomization_Group)]
+# addWorksheet(wb, sheetName = "Concurrent psychotherapy")
+# writeData(wb, sheet = "Concurrent psychotherapy", sheetDT)
+
+# eTlongCP
+
+
+sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
+				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongCP, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+addWorksheet(wb, sheetName = "Sensitivity - CP")
+writeData(wb, sheet = "Sensitivity - CP", sheetDT)
+
+esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
+			 eTlongCP[wave != 1, 
+				  unlist(.(outcome = .x, (effectsize::cohens_d(reformulate("Randomization_Group", response = .x), data = .SD))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Cohens_d := paste0(Cohens_d, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Cohens_d)]
+
+esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+			 eTlongCP[wave != 1, 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
+
+esLOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+			  eTlongCP[wave != 1, 
+				   unlist(.(outcome = .x, (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+					  recursive = FALSE), 
+				   by = .(wave)
+				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				   ][, log_Odds_ratio := paste0(log_Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, log_Odds_ratio)]
+
+sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLOR))[order(wave, outcome)]
+
+addWorksheet(wb, sheetName = "Effect sizes - CP")
+writeData(wb, sheet = "Effect sizes - CP", sheetDT)
+
+
+
+
+
+### Full programme sensitivity analyses -------------------------------------------------------------
+
+eTlongFP <- eTlong[Randomization_Group == "Control" | (dwmN >= 3 & pmN >= 4)]
+sheetDT <- eTlongFP[, unique(.SD[, .(Record_Id, Randomization_Group)])][, .N, by = .(Randomization_Group)]
+
+
+
+addWorksheet(wb, sheetName = "Full program")
+writeData(wb, sheet = "Full program", sheetDT)
+
+
+
+sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
+				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongFP, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+addWorksheet(wb, sheetName = "Sensitivity - FP")
+writeData(wb, sheet = "Sensitivity - FP", sheetDT)
+
+esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
+			 eTlongFP[wave != 1, 
+				  unlist(.(outcome = .x, (effectsize::cohens_d(reformulate("Randomization_Group", response = .x), data = .SD))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Cohens_d := paste0(Cohens_d, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Cohens_d)]
+
+esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+			 eTlongFP[wave != 1, 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
+
+esLOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+			  eTlongFP[wave != 1, 
+				   unlist(.(outcome = .x, (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+					  recursive = FALSE), 
+				   by = .(wave)
+				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				   ][, log_Odds_ratio := paste0(log_Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, log_Odds_ratio)]
+
+sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLOR))[order(wave, outcome)]
+
+addWorksheet(wb, sheetName = "Effect sizes - FP")
+writeData(wb, sheet = "Effect sizes - FP", sheetDT)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("phq9_0")]|> psych::alpha()
 
+addWorksheet(wb, sheetName = "Cronbach PHQ-9")
+writeData(wb, sheet = "Cronbach PHQ-9", sheetDT)
+
+
+
 sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("gad7_\\d")]|> psych::alpha()
+addWorksheet(wb, sheetName = "Cronbach GAD7")
+writeData(wb, sheet = "Cronbach GAD7", sheetDT)
 
 sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("pcl5_\\d")]|> psych::alpha()
+addWorksheet(wb, sheetName = "Cronbach PCL-5")
+writeData(wb, sheet = "Cronbach PCL-5", sheetDT)
 
 sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("phq9_0|gad7_\\d")]|> psych::alpha()
+addWorksheet(wb, sheetName = "Cronbach PHQ-ADS")
+writeData(wb, sheet = "Cronbach PHQ-ADS", sheetDT)
 
 
 saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report3.xlsx"), overwrite = TRUE)
