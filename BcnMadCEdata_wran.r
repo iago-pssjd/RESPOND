@@ -137,19 +137,19 @@ MTdata <- merge(MT12, MT34, all = TRUE)
 
 
 Tlong <- melt(Tdata, 
-	      measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(?<!t1_t[01]_)(.*)"))
+	      measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(?!t[01]_)(.*)"))
 Tlong <- na.omit(Tlong, cols = "Survey_Completed_On")
 Tlong[, `:=` (Survey_Completed_On = as.POSIXct(Survey_Completed_On, format = "%d/%m/%Y %k:%M"))]
 
 MTlong <- melt(MTdata, 
-	       measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(?<!t1_t[01]_)(.*)"))
+	       measure.vars = measure(wave = as.integer, value.name, pattern = "^t([1234])_(?!t[01]_)(.*)"))
 MTlong <- na.omit(MTlong, cols = "Survey_Completed_On")
 MTlong[, `:=` (Survey_Completed_On = as.POSIXct(Survey_Completed_On, format = "%d-%m-%Y %H:%M:%S"))]
 
 Tlong <- rbind(Tlong, MTlong)
 screening <- rbind(screening, Mscreening)
 setkey(Tlong, Castor_Record_ID, wave)
-
+setnames(Tlong, \(.x) sub("^t1_(t[01])", "\\1", .x))
 
 
 cols <- c("Randomization_Group", "Institute_Abbreviation")
