@@ -31,6 +31,9 @@ if(Sys.info()["sysname"] == "Linux"){
 # library(car)
 # library(systemfit)
 # library(emmeans)
+library(glmmTMB)
+library(trouBBlme4SolveR)
+library(lme4)
 library(openxlsx)
 library(multcomp)
 library(clubSandwich)
@@ -591,7 +594,7 @@ writeData(wb, sheet = "Effect sizes distressed", sheetDT)
 ### Female sensitivity analyses -------------------------------------------------------------
 
 eTlongFF <- eTlong[t0_soc_01 == "Mujer"]
-sheetDT <- eTlongFF[, .(Record_Id, Randomization_Group)][, .N, by = .(Randomization_Group)]
+sheetDT <- unique(eTlongFF[, .(Record_Id, Randomization_Group)])[, .N, by = .(Randomization_Group)]
 addWorksheet(wb, sheetName = "Female participants")
 writeData(wb, sheet = "Female participants", sheetDT)
 
@@ -633,6 +636,72 @@ sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLO
 addWorksheet(wb, sheetName = "Effect sizes - Female")
 writeData(wb, sheet = "Effect sizes - Female", sheetDT)
 
+
+
+
+### Adjusted estimates (incl. baseline covariate) sensitivity analyses -------------------------------------------------------------
+
+cols <- c("t0_soc_18", "Institute_Abbreviation")
+eTlong[, (cols) := lapply(.SD, \(.x) factor(.x, levels = levels(.x)[c(2,1)])), .SDcols = cols]
+
+sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
+				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + t0_soc_18 + Institute_Abbreviation + baseline_phq_ads")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+addWorksheet(wb, sheetName = "Adjusted estimates")
+writeData(wb, sheet = "Adjusted estimates", sheetDT)
+
+# fit14 <- lmer(phq_ads ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + t0_soc_18 + Institute_Abbreviation + baseline_phq_ads + (1 | Record_Id), data = eTlong)
+# cbind(fixef(fit14), confint(fit14)[-c(1,2),])
+
+
+
+saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report.xlsx"), overwrite = TRUE)
+
+### Complete case sensitivity analyses -------------------------------------------------------------
+
+
+wb <- loadWorkbook(paste0(data_add, "../target/BcnMadCE/results/report.xlsx"))
+
+
+unique(eTlong[, aux := NULL][, aux := .N, by = .(Record_Id)][aux == 4][, .(Record_Id, Randomization_Group)])[, .N, by = .(Randomization_Group)]
+
+# eTlongCC
+
+sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
+				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongCC, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+
+### Sqrt outcomes sensitivity analyses -------------------------------------------------------------
+
+
+sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
+				    ntv <- intervals(lme(as.formula(paste0("sqrt(", .x,") ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+
+### Binary outcomes (logistics models) sensitivity analyses -------------------------------------------------------------
+
+sheetDT <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x) { 
+				    fit <- dwmw(glmer(as.formula(paste0(.x, " ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id)")), data = eTlong, family = binomial))
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+
+
+
+
+sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("phq9_0")]|> psych::alpha()
+
+sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("gad7_\\d")]|> psych::alpha()
+
+sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("pcl5_\\d")]|> psych::alpha()
+
+sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("phq9_0|gad7_\\d")]|> psych::alpha()
 
 
 saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report.xlsx"), overwrite = TRUE)
