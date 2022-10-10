@@ -717,10 +717,10 @@ saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report2.xlsx"), ov
 wb <- loadWorkbook(paste0(data_add, "../target/BcnMadCE/results/report2.xlsx"))
 
 
-sheetDT <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x) { 
-				    fit <- dwmw(glmer(as.formula(paste0(.x, " ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id)")), data = eTlong, family = binomial))
-				    # exp(cbind(fit, confint(fit))) 
-				     }))
+# sheetDT <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x) { 
+# 				    fit <- dwmw(glmer(as.formula(paste0(.x, " ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id)")), data = eTlong, family = binomial))
+# 				    # exp(cbind(fit, confint(fit))) 
+# 				     }))
 
 
 sheetDT <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x) { 
@@ -729,16 +729,21 @@ sheetDT <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x) {
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "Estimate", before = "2.5 %")
 
+addWorksheet(wb, sheetName = "Binary outcomes")
+writeData(wb, sheet = "Binary outcomes", sheetDT)
 
 
 
 ### Concurrent psychotherapy sensitivity analyses -------------------------------------------------------------
-unique(eTlong[, aux := NULL][, aux := .N, by = .(Record_Id)][csri_sp_mental_g_n == 0 & csri_sp_mental_i_n == 0][, aux2 := .N, by = .(Record_Id)][aux == aux2][, .(Record_Id, Randomization_Group)])[, .N, by = .(Randomization_Group)]
-# addWorksheet(wb, sheetName = "Concurrent psychotherapy")
-# writeData(wb, sheet = "Concurrent psychotherapy", sheetDT)
 
-# eTlongCP
+eTlongCP <- eTlong[, aux := NULL][, aux := .N, by = .(Record_Id)][(csri_sp_mental_g_n == 0 | is.na(csri_sp_mental_g_n)) & (csri_sp_mental_i_n == 0 | is.na(csri_sp_mental_i_n))][, aux2 := .N, by = .(Record_Id)][aux == aux2]
+sheetDT <- unique(eTlongCP[, .(Record_Id, Randomization_Group)])[, .N, by = .(Randomization_Group)]
+addWorksheet(wb, sheetName = "Concurrent psychotherapy")
+writeData(wb, sheet = "Concurrent psychotherapy", sheetDT)
+
 
 
 sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
@@ -856,15 +861,33 @@ writeData(wb, sheet = "Cronbach PHQ-9", sheetDT)
 
 sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("gad7_\\d")]|> psych::alpha()
 addWorksheet(wb, sheetName = "Cronbach GAD7")
-writeData(wb, sheet = "Cronbach GAD7", sheetDT)
+writeData(wb, sheet = "Cronbach GAD7", cbind(sheetDT[["total"]], structure(unlist(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))))
+addWorksheet(wb, sheetName = "GAD7 Reliab. item dropped")
+writeData(wb, sheet = "GAD7 Reliab. item dropped", sheetDT[["alpha.drop"]])
+addWorksheet(wb, sheetName = "GAD7 Item statistics")
+writeData(wb, sheet = "GAD7 Item statistics", sheetDT[["item.stats"]])
+addWorksheet(wb, sheetName = "GAD7 Non missing frequency")
+writeData(wb, sheet = "GAD7 Non missing frequency", sheetDT[["response.freq"]])
 
 sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("pcl5_\\d")]|> psych::alpha()
 addWorksheet(wb, sheetName = "Cronbach PCL-5")
-writeData(wb, sheet = "Cronbach PCL-5", sheetDT)
+writeData(wb, sheet = "Cronbach PCL-5", cbind(sheetDT[["total"]], structure(unlist(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))))
+addWorksheet(wb, sheetName = "PCL-5 Reliab. item dropped")
+writeData(wb, sheet = "PCL-5 Reliab. item dropped", sheetDT[["alpha.drop"]])
+addWorksheet(wb, sheetName = "PCL-5 Item statistics")
+writeData(wb, sheet = "PCL-5 Item statistics", sheetDT[["item.stats"]])
+addWorksheet(wb, sheetName = "PCL-5 Non missing frequency")
+writeData(wb, sheet = "PCL-5 Non missing frequency", sheetDT[["response.freq"]])
 
 sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("phq9_0|gad7_\\d")]|> psych::alpha()
 addWorksheet(wb, sheetName = "Cronbach PHQ-ADS")
-writeData(wb, sheet = "Cronbach PHQ-ADS", sheetDT)
+writeData(wb, sheet = "Cronbach PHQ-ADS", cbind(sheetDT[["total"]], structure(unlist(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))))
+addWorksheet(wb, sheetName = "PHQ-ADS Reliab. item dropped")
+writeData(wb, sheet = "PHQ-ADS Reliab. item dropped", sheetDT[["alpha.drop"]])
+addWorksheet(wb, sheetName = "PHQ-ADS Item statistics")
+writeData(wb, sheet = "PHQ-ADS Item statistics", sheetDT[["item.stats"]])
+addWorksheet(wb, sheetName = "PHQ-ADS Non missing frequency")
+writeData(wb, sheet = "PHQ-ADS Non missing frequency", sheetDT[["response.freq"]])
 
 
 saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report3.xlsx"), overwrite = TRUE)
