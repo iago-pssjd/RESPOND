@@ -855,7 +855,7 @@ writeData(wb, sheet = "Effect sizes - FP", sheetDT)
 sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("phq9_0")]|> psych::alpha()
 
 addWorksheet(wb, sheetName = "Cronbach PHQ-9")
-writeData(wb, sheet = "Cronbach PHQ-9", cbind(sheetDT[["total"]], structure(as.data.frame.list(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))), rowNames = TRUE)
+writeData(wb, sheet = "Cronbach PHQ-9", cbind(sheetDT[["total"]], structure(as.data.frame.list(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))))
 addWorksheet(wb, sheetName = "PHQ-9 Reliab. item dropped")
 writeData(wb, sheet = "PHQ-9 Reliab. item dropped", sheetDT[["alpha.drop"]], rowNames = TRUE)
 addWorksheet(wb, sheetName = "PHQ-9 Item statistics")
@@ -867,7 +867,7 @@ writeData(wb, sheet = "PHQ-9 Non missing frequency", sheetDT[["response.freq"]],
 
 sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("gad7_\\d")]|> psych::alpha()
 addWorksheet(wb, sheetName = "Cronbach GAD7")
-writeData(wb, sheet = "Cronbach GAD7", cbind(sheetDT[["total"]], structure(as.data.frame.list(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))), rowNames = TRUE)
+writeData(wb, sheet = "Cronbach GAD7", cbind(sheetDT[["total"]], structure(as.data.frame.list(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))))
 addWorksheet(wb, sheetName = "GAD7 Reliab. item dropped")
 writeData(wb, sheet = "GAD7 Reliab. item dropped", sheetDT[["alpha.drop"]], rowNames = TRUE)
 addWorksheet(wb, sheetName = "GAD7 Item statistics")
@@ -877,7 +877,7 @@ writeData(wb, sheet = "GAD7 Non missing frequency", sheetDT[["response.freq"]], 
 
 sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("pcl5_\\d")]|> psych::alpha()
 addWorksheet(wb, sheetName = "Cronbach PCL-5")
-writeData(wb, sheet = "Cronbach PCL-5", cbind(sheetDT[["total"]], structure(as.data.frame.list(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))), rowNames = TRUE)
+writeData(wb, sheet = "Cronbach PCL-5", cbind(sheetDT[["total"]], structure(as.data.frame.list(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))))
 addWorksheet(wb, sheetName = "PCL-5 Reliab. item dropped")
 writeData(wb, sheet = "PCL-5 Reliab. item dropped", sheetDT[["alpha.drop"]], rowNames = TRUE)
 addWorksheet(wb, sheetName = "PCL-5 Item statistics")
@@ -887,7 +887,7 @@ writeData(wb, sheet = "PCL-5 Non missing frequency", sheetDT[["response.freq"]],
 
 sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("phq9_0|gad7_\\d")]|> psych::alpha()
 addWorksheet(wb, sheetName = "Cronbach PHQ-ADS")
-writeData(wb, sheet = "Cronbach PHQ-ADS", cbind(sheetDT[["total"]], structure(as.data.frame.list(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))), rowNames = TRUE)
+writeData(wb, sheet = "Cronbach PHQ-ADS", cbind(sheetDT[["total"]], structure(as.data.frame.list(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))))
 addWorksheet(wb, sheetName = "PHQ-ADS Reliab. item dropped")
 writeData(wb, sheet = "PHQ-ADS Reliab. item dropped", sheetDT[["alpha.drop"]], rowNames = TRUE)
 addWorksheet(wb, sheetName = "PHQ-ADS Item statistics")
