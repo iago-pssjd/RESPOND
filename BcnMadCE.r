@@ -54,7 +54,7 @@ load(paste0(data_add, "../target/BcnMadCE/CEdata2.rdata"))
 
 # Data preparation  ----------------------------------------------------------------
 
-Tlong[, `:=` (phq9_depression = factor(phq9 >= 10), gad7_anxiety = factor(gad7 >= 10))]
+Tlong[, `:=` (phq9_depression = factor(phq9 < 10), gad7_anxiety = factor(gad7 < 10))]
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
 eTlong[, `:=` (age = year(Survey_Completed_On) - t0_soc_02, 
