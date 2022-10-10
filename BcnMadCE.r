@@ -501,11 +501,11 @@ writeData(wb, sheet = "Models (per protocol)", sheetDT)
 
 esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
 			 eTlongPP[wave != 1, 
-				  unlist(.(outcome = .x, (effectsize::cohens_d(reformulate("Randomization_Group", response = .x), data = .SD))), 
+				  unlist(.(outcome = .x, (effectsize::hedges_g(reformulate("Randomization_Group", response = .x), data = .SD))), 
 					 recursive = FALSE), 
 				  by = .(wave)
-				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(wave, outcome)
-				  ][, Cohens_d := paste0(Cohens_d, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Cohens_d)]
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Hedges_g := paste0(Hedges_g, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Hedges_g)]
 
 esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
 			 eTlongPP[wave != 1, 
@@ -573,11 +573,11 @@ writeData(wb, sheet = "Sensitivity distressed", sheetDT)
 
 esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
 			 eTlongSS[wave != 1, 
-				  unlist(.(outcome = .x, (effectsize::cohens_d(reformulate("Randomization_Group", response = .x), data = .SD))), 
+				  unlist(.(outcome = .x, (effectsize::hedges_g(reformulate("Randomization_Group", response = .x), data = .SD))), 
 					 recursive = FALSE), 
 				  by = .(wave)
-				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(wave, outcome)
-				  ][, Cohens_d := paste0(Cohens_d, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Cohens_d)]
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Hedges_g := paste0(Hedges_g, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Hedges_g)]
 
 esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
 			 eTlongSS[wave != 1, 
@@ -757,11 +757,11 @@ writeData(wb, sheet = "Sensitivity - CP", sheetDT)
 
 esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
 			 eTlongCP[wave != 1, 
-				  unlist(.(outcome = .x, (effectsize::cohens_d(reformulate("Randomization_Group", response = .x), data = .SD))), 
+				  unlist(.(outcome = .x, (effectsize::hedges_g(reformulate("Randomization_Group", response = .x), data = .SD))), 
 					 recursive = FALSE), 
 				  by = .(wave)
-				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(wave, outcome)
-				  ][, Cohens_d := paste0(Cohens_d, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Cohens_d)]
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Hedges_g := paste0(Hedges_g, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Hedges_g)]
 
 esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
 			 eTlongCP[wave != 1, 
@@ -811,11 +811,11 @@ writeData(wb, sheet = "Sensitivity - FP", sheetDT)
 
 esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
 			 eTlongFP[wave != 1, 
-				  unlist(.(outcome = .x, (effectsize::cohens_d(reformulate("Randomization_Group", response = .x), data = .SD))), 
+				  unlist(.(outcome = .x, (effectsize::hedges_g(reformulate("Randomization_Group", response = .x), data = .SD))), 
 					 recursive = FALSE), 
 				  by = .(wave)
-				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(wave, outcome)
-				  ][, Cohens_d := paste0(Cohens_d, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Cohens_d)]
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Hedges_g := paste0(Hedges_g, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Hedges_g)]
 
 esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
 			 eTlongFP[wave != 1, 
