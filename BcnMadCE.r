@@ -443,7 +443,7 @@ writeData(wb, sheet = "Models (intention-to-treat)", sheetDT)
 
 esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
 			 eTlong[wave != 1, 
-				unlist(.(outcome = .x, (effectsize::cohens_d(reformulate("Randomization_Group", response = .x), data = .SD))), 
+				unlist(.(outcome = .x, (do.call(what = effectsize::cohens_d, args = list(x = reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group", .x)))))), 
 				       recursive = FALSE), 
 				by = .(wave)
 				][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(wave, outcome)
@@ -501,7 +501,7 @@ writeData(wb, sheet = "Models (per protocol)", sheetDT)
 
 esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
 			 eTlongPP[wave != 1, 
-				  unlist(.(outcome = .x, (effectsize::hedges_g(reformulate("Randomization_Group", response = .x), data = .SD))), 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::hedges_g, args = list(x = reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group", .x)))))), 
 					 recursive = FALSE), 
 				  by = .(wave)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
@@ -573,7 +573,7 @@ writeData(wb, sheet = "Sensitivity distressed", sheetDT)
 
 esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
 			 eTlongSS[wave != 1, 
-				  unlist(.(outcome = .x, (effectsize::hedges_g(reformulate("Randomization_Group", response = .x), data = .SD))), 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::hedges_g, args = list(x = reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group", .x)))))), 
 					 recursive = FALSE), 
 				  by = .(wave)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
@@ -621,7 +621,7 @@ writeData(wb, sheet = "Sensitivity - Female", sheetDT)
 
 esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
 			 eTlongFF[wave != 1, 
-				  unlist(.(outcome = .x, (effectsize::cohens_d(reformulate("Randomization_Group", response = .x), data = .SD))), 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::cohens_d, args = list(x = reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group", .x)))))), 
 					 recursive = FALSE), 
 				  by = .(wave)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(wave, outcome)
@@ -757,7 +757,7 @@ writeData(wb, sheet = "Sensitivity - CP", sheetDT)
 
 esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
 			 eTlongCP[wave != 1, 
-				  unlist(.(outcome = .x, (effectsize::hedges_g(reformulate("Randomization_Group", response = .x), data = .SD))), 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::hedges_g, args = list(x = reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group", .x)))))), 
 					 recursive = FALSE), 
 				  by = .(wave)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
@@ -811,7 +811,7 @@ writeData(wb, sheet = "Sensitivity - FP", sheetDT)
 
 esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
 			 eTlongFP[wave != 1, 
-				  unlist(.(outcome = .x, (effectsize::hedges_g(reformulate("Randomization_Group", response = .x), data = .SD))), 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::hedges_g, args = list(x = reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group", .x)))))), 
 					 recursive = FALSE), 
 				  by = .(wave)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
