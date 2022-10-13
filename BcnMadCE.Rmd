@@ -532,14 +532,17 @@ fit11 <- lme(phq_ads ~ Randomization_Group + time*Randomization_Group, random = 
 # fit11 <- lme(phq_ads ~ time + time:Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit) # the same
 summary(fit11)
 intervals(fit11) # intervals(fit11, which = "fixed")[["fixed"]][-1,]
+vcCR11 <- vcovCR(fit11, type = "CR2")
+conf_int(fit11, vcov = vcCR11)
+
 # lme4::lmer
 fit14 <- lmer(phq_ads ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id), data = eTlong)
 # fit14 <- lmer(phq_ads ~ time + time:Randomization_Group + (1 | Record_Id), data = eTlong) # the same
 summary(fit14)
 cbind(fixef(fit14), confint(fit14)[-c(1,2),])
 # sandwich(fit14) # sandwich, merDeriv # NOT working!!!
-vcCR <- vcovCR(fit14, type = "CR2")
-conf_int(fit14, vcov = vcCR)
+vcCR14 <- vcovCR(fit14, type = "CR2")
+conf_int(fit14, vcov = vcCR14)
 # robustlmm::rlmer
 rfit14 <- rlmer(phq_ads ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id), data = eTlong) # robustlmm
 summary(rfit14)
@@ -553,19 +556,21 @@ fixef(rfit14)
 
 ### Contrasts/effect sizes analyses -------------------------------------------------------------
 
-fit1RG <- emmeans(fit14, "Randomization_Group", by = "time")
-fit1RG.pw <- emmeans(fit1, pairwise ~ Randomization_Group, by = "time")
-emmip(fit1RG.pw$emmeans, Randomization_Group ~ time)
+fit11RG <- emmeans(fit11, "Randomization_Group", by = "time", vcov = vcCR11, mode = "satterthwaite")
+
+fit14RG <- emmeans(fit14, "Randomization_Group", by = "time", vcov = vcCR14, lmer.df = "satterthwaite")
+fit14RG.pw <- emmeans(fit14, pairwise ~ Randomization_Group, by = "time", vcov = vcCR14, lmer.df = "satterthwaite")
+emmip(fit14RG.pw$emmeans, Randomization_Group ~ time, CIs = TRUE)
+eff_size(fit14RG, sigma = sigma(fit14), edf = df.residual(fit14)) 
 
 
-K <- cbind(matrix(0, 4, 4), diag(4))
-rownames(K) <- paste0("Intervention - Control | time", 1:4)
-colnames(K) <- names(fixef(fit11))
-confint(glht(fit11, linfct = K))
-pairs(fit1RG) # extend glht results
-eff_size(fit1RG, sigma = sigma(fit14), edf = 229)
-eff_size(fit1RG, sigma = sigma(fit14), edf = df.residual(fit14)) 
-# comparisons(fit14, variables = list(Randomization_Group = "pairwise"), by = "time") # extend glht results
+# K <- cbind(matrix(0, 4, 4), diag(4))
+# rownames(K) <- paste0("Intervention - Control | time", 1:4)
+# colnames(K) <- names(fixef(fit11))
+# confint(glht(fit11, linfct = K))
+# pairs(fit1RG) # extend glht results
+# eff_size(fit14RG, sigma = sigma(fit14), edf = 229)
+# comparisons(fit14, variables = list(Randomization_Group = "pairwise"), by = "time") # extend glht results # marginaleffects
 
 
 
