@@ -30,9 +30,18 @@ if(Sys.info()["sysname"] == "Linux"){
 # library(compareGroups)
 # library(car)
 # library(systemfit)
+# library(lmtest) # coefci
 # library(emmeans)
+# library(scdhlm)
+# library(sandwich) # https://sandwich.r-forge.r-project.org/articles/sandwich.html
+# library(merDeriv) # estfun.lmerMod, bread.lmerMod # https://stackoverflow.com/a/70268157/997979
+# library(robustlmm) # rlmer
+# source("https://raw.githubusercontent.com/masonFG/CIrobustLMM/master/CI_functions/confintLMMFast.R")
+# source("https://raw.githubusercontent.com/masonFG/CIrobustLMM/master/CI_functions/BCaVarCompRob.R")
+# source("https://raw.githubusercontent.com/masonFG/CIrobustLMM/master/CI_functions/BCaDAStau.R")
+# source("https://raw.githubusercontent.com/masonFG/CIrobustLMM/master/CI_functions/BCaML.R")
 library(glmmTMB)
-library(trouBBlme4SolveR)
+# library(trouBBlme4SolveR)
 library(lme4)
 library(openxlsx)
 library(multcomp)
@@ -379,41 +388,41 @@ fit1 <- lme(phq_ads ~ time + baseline_phq_ads + time:Randomization_Group, random
 # coef_test(fit1, vcov = vcCR) # clubSandwich
 # conf_int(fit1, vcov = vcCR) # clubSandwich
 
-### Looking for reproducibility tests -------------------------------------------------------------
 
-#### Robust reproducibility tests -------------------------------------------------------------
+### Robust reproducibility tests -------------------------------------------------------------
 
-# https://sandwich.r-forge.r-project.org/articles/sandwich.html
-# library(sandwich) # sandwich
-# library(lmtest) # coefci
-# library(merDeriv) # estfun.lmerMod, bread.lmerMod
-# library(lme4)
-# library(robustlmm) # rlmer
+# nlme::lme
+fit11 <- lme(phq_ads ~ Randomization_Group + time*Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
+# fit11 <- lme(phq_ads ~ time + time:Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit) # the same
+summary(fit11)
+intervals(fit11) # intervals(fit11, which = "fixed")[["fixed"]][-1,]
+# lme4::lmer
+fit14 <- lmer(phq_ads ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id), data = eTlong)
+# fit14 <- lmer(phq_ads ~ time + time:Randomization_Group + (1 | Record_Id), data = eTlong) # the same
+summary(fit14)
+cbind(fixef(fit14), confint(fit14)[-c(1,2),])
+# sandwich(fit14) # sandwich, merDeriv # NOT working!!!
+vcCR <- vcovCR(fit14, type = "CR2")
+conf_int(fit14, vcov = vcCR)
+# robustlmm::rlmer
+rfit14 <- rlmer(phq_ads ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id), data = eTlong) # robustlmm
+summary(rfit14)
+fixef(rfit14)
+# rCI <- BCaboot(model = rfit14, data = eTlong, clusterid = eTlong$Record_Id, methodCI = "wild", B = 10, confint.level = .95, BCa = TRUE) # NOT WORKING!!!
 
-# fit14 <- lmer(phq_ads ~ time*Randomization_Group + (1 | Record_Id), data = eTlong)
-# cbind(fixef(fit14), confint(fit14)[-c(1,2),])
-# vcCR <- vcovCR(fit14, type = "CR2")
-# conf_int(fit14, vcov = vcCR)
-# sandwich(fit14) # sandwich, merDeriv
-# 
-# rfit14 <- rlmer(phq_ads ~ time + time*Randomization_Group + (1 | Record_Id), data = eTlong) # robustlmm
-# summary(rfit14)
-# fixef(rfit14)
 
-#### (Non-mixed-effects) Linear models reproducibility tests -------------------------------------------------------------
+
+### (Non-mixed-effects) Linear models reproducibility tests -------------------------------------------------------------
 
 # fit11 <- lm(phq_ads ~ time*Randomization_Group, data = eTlong, na.action = na.omit)
 # cbind(coef(fit11), confint(fit11))
 # vcHC <- vcovHC(fit11, type = "HC")
 # cbind(coef(fit11), coefci(fit11, vcov = vcHC)) # lmtest
 
-### Repdroduction analyses -------------------------------------------------------------
 
-fit11 <- lme(phq_ads ~ time + time:Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
-fit14 <- lmer(phq_ads ~ time + time:Randomization_Group + (1 | Record_Id), data = eTlong)
-cbind(fixef(fit14), confint(fit14)[-c(1,2),])
-intervals(fit11)[["fixed"]][-1,]
-summary(fit11)
+
+### Contrasts/effect sizes analyses -------------------------------------------------------------
+
 K <- cbind(matrix(0, 4, 4), diag(4))
 rownames(K) <- paste0("Intervention - Control | time", 1:4)
 colnames(K) <- names(fixef(fit11))
