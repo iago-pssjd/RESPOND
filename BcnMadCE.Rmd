@@ -124,20 +124,20 @@ melt(eTlong[, aux := .N, by = .(wave,time)][, aux := unique(aux[wave == 1]) - au
 
 
 sheetDT <- eTlong[, aux := NULL][, aux := phq_ads[wave==4], by = .(Record_Id)][, aux := is.na(aux)][wave==1, .N, by = .(aux, t0_soc_01)][, p := round(100* N/sum(N), 2), by = .(t0_soc_01)][aux == TRUE]
-addWorksheet(wb, sheetName = "Missingness by gender")
-writeData(wb, sheet = "Missingness by gender", sheetDT)
 sheetDT[, `:=` (variable = "phq_ads", time = "T4", aux = NULL)]
 setcolorder(sheetDT, neworder = c("variable", "time"), before = "N")
+addWorksheet(wb, sheetName = "Missingness by gender")
+writeData(wb, sheet = "Missingness by gender", sheetDT)
 kable(sheetDT, caption = "Missingness by gender")
 
 
 
 
 sheetDT <- eTlong[, aux := NULL][, aux := phq_ads[wave==4], by = .(Record_Id)][, aux := is.na(aux)][wave==1, .N, by = .(aux, t0_soc_16)][, p := round(100* N/sum(N), 2), by = .(t0_soc_16)][aux == TRUE]
-addWorksheet(wb, sheetName = "Missingness by type of job")
-writeData(wb, sheet = "Missingness by type of job", sheetDT)
 sheetDT[, `:=` (variable = "phq_ads", time = "T4", aux = NULL)]
 setcolorder(sheetDT, neworder = c("variable", "time"), before = "N")
+addWorksheet(wb, sheetName = "Missingness by type of job")
+writeData(wb, sheet = "Missingness by type of job", sheetDT)
 kable(sheetDT, caption = "Missingness by type of job")
 
 
@@ -570,11 +570,11 @@ emmip(fit14RG.pw$emmeans, Randomization_Group ~ time, CIs = TRUE)
 eff_size(fit14RG, sigma = sigma(fit14), edf = min(summary(pairs(fit14RG))$df)) 
 
 
-# K <- cbind(matrix(0, 4, 4), diag(4))
+# K <- cbind(rep(0, 4), c(1, rep(0,3)), rbind(rep(0,3), 0*diag(3)), rbind(rep(0,3), diag(3)))
 # rownames(K) <- paste0("Intervention - Control | time", 1:4)
-# colnames(K) <- names(fixef(fit11))
-# confint(glht(fit11, linfct = K))
-# pairs(fit1RG) # extend glht results
+# colnames(K) <- names(fixef(fit14))
+# confint(glht(fit14, linfct = K, vcov. = as.matrix(vcCR14)))
+# pairs(fit14RG) # extend glht results
 # eff_size(fit14RG, sigma = sigma(fit14), edf = 229)
 # comparisons(fit14, variables = list(Randomization_Group = "pairwise"), by = "time") # extend glht results # marginaleffects
 
