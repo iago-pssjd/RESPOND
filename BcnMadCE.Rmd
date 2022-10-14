@@ -22,7 +22,7 @@ editor_options:
 # from BcnMadCEdata_wranfactors.r
 
 knitr::opts_chunk$set(echo = FALSE, results = 'asis', 
-                      # fig.height = 7, fig.width = 9, 
+                      fig.height = 10, fig.width = 10,
                       eval = TRUE, message = FALSE, warning = FALSE)
 # Data directory ----------------------------------------------------------
 
@@ -101,7 +101,7 @@ wb <- createWorkbook()
 
 ## Missing data
 
-```{r, fig.height=10}
+```{r}
 
 eTlong[, .(miss = sum(is.na(phq_ads)), .N), by = .(wave, time)
 		  ][, `:=` (`Primary outcome missings` = N[wave == 1] - N + miss)
@@ -145,7 +145,7 @@ kable(sheetDT, caption = "Missingness by type of job")
 
 
 
-```{r, fig.width=10, fig.height=8}
+```{r, fig.height=8}
 
 
 eTlong[, aux := NULL
@@ -488,7 +488,7 @@ kable(sheetDT, caption = "Table 2. Mental health outcomes by randomisation group
 
 ## Plots
 
-```{r, fig.width=10, fig.height=10}
+```{r}
 
 Tcontpre[outcome %in% intOutcomes[1:4]][, `:=` (Om = Q1 - 1.5*(Q3 - Q1), OM = Q3 + 1.5*(Q3 - Q1), outcome = factor(outcome, levels = intOutcomes[c(1:4)]), time = factor(time, labels = sub("^T\\d\\. ", "", levels(time))))] |> 
   ggplot(aes(x = time, y = mean, colour = Randomization_Group)) +
@@ -558,8 +558,11 @@ vcCR14 <- vcovCR(fit14, type = "CR2")
 
 
 ### Contrasts/effect sizes analyses -------------------------------------------------------------
-
-fit11RG <- emmeans(fit11, "Randomization_Group", by = "time", vcov. = vcCR11, mode = "satterthwaite")
+set.seed(20221014)
+fit11RG <- emmeans(fit11, "Randomization_Group", by = "time", vcov. = vcCR11, mode = "appx-satterthwaite")
+fit11RG.pw <- emmeans(fit11, pairwise ~ Randomization_Group, by = "time", vcov = vcCR11, mode = "appx-satterthwaite")
+emmip(fit11RG.pw$emmeans, Randomization_Group ~ time, CIs = TRUE)
+eff_size(fit11RG, sigma = sigma(fit11), edf = min(summary(pairs(fit11RG))$df)) 
 
 fit14RG <- emmeans(fit14, "Randomization_Group", by = "time", vcov. = vcCR14, lmer.df = "satterthwaite")
 fit14RG.pw <- emmeans(fit14, pairwise ~ Randomization_Group, by = "time", vcov = vcCR14, lmer.df = "satterthwaite")
@@ -587,8 +590,10 @@ eff_size(fit14RG, sigma = sigma(fit14), edf = min(summary(pairs(fit14RG))$df))
 
 #### ITT -------------------------------------------------------------
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
-				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+models <- sapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 
@@ -601,7 +606,15 @@ addWorksheet(wb, sheetName = "Models (intention-to-treat)")
 writeData(wb, sheet = "Models (intention-to-treat)", sheetDT)
 kable(sheetDT, caption = "ITT models")
 
+```
 
+```{r}
+
+```
+
+
+
+```{r, eval=FALSE}
 
 esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) 
 			 eTlong[wave != 1, 
@@ -654,12 +667,13 @@ writeData(wb, sheet = "Participants in PP analysis", sheetDT)
 eTlongPP <- eTlong[Randomization_Group == "Control" | (dwmN >= 3 & ((pmN >= 4 & step_up == 1) | step_up == 0))]
 
 
+models <- sapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongPP, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
 
-
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
-				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongPP, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
+
 
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
 setcolorder(sheetDT, "est.", before = "lower")
@@ -701,9 +715,10 @@ writeData(wb, sheet = "Effect sizes (PP)", sheetDT)
 ### Sensitivity analyses per site -------------------------------------------------------------
 #### ITT -------------------------------------------------------------
 
+models <- sapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
-				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlong, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 
@@ -715,8 +730,10 @@ writeData(wb, sheet = "Sensitivity - ITT nested", sheetDT)
 
 #### Per-Protocol PP -------------------------------------------------------------
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
-				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlongPP, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+models <- sapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlongPP, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
@@ -732,8 +749,10 @@ addWorksheet(wb, sheetName = "Participants with severity")
 writeData(wb, sheet = "Participants with severity", sheetDT)
 
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
-				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongSS, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+models <- sapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongSS, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
@@ -780,8 +799,10 @@ writeData(wb, sheet = "Female participants", sheetDT)
 
 
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
-				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongFF, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+models <- sapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongFF, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
@@ -826,8 +847,11 @@ writeData(wb, sheet = "Effect sizes - Female", sheetDT)
 cols <- c("t0_soc_18", "Institute_Abbreviation")
 eTlong[, (cols) := lapply(.SD, \(.x) factor(.x, levels = levels(.x)[c(2,1)])), .SDcols = cols]
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
-				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + t0_soc_18 + Institute_Abbreviation + baseline_phq_ads")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+
+models <- sapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + t0_soc_18 + Institute_Abbreviation + baseline_phq_ads")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
@@ -854,8 +878,10 @@ writeData(wb, sheet = "Complete cases", sheetDT)
 
 
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
-				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongCC, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+models <- sapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongCC, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
@@ -866,12 +892,12 @@ writeData(wb, sheet = "Sensitivity - CC", sheetDT)
 
 ### Sqrt outcomes sensitivity analyses -------------------------------------------------------------
 
+models <- sapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0("sqrt(", .x,") ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
-				    ntv <- intervals(lme(as.formula(paste0("sqrt(", .x,") ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
-
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
 setcolorder(sheetDT, "est.", before = "lower")
 
@@ -893,8 +919,10 @@ wb <- loadWorkbook(paste0(data_path, "../target/BcnMadCE/results/report2.xlsx"))
 # 				     }))
 
 
-sheetDT <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x) { 
-				    ntv <- exp(confint(glmmTMB(as.formula(paste0(.x, " ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id)")), data = eTlong, family = binomial)))
+models <- sapply(c("phq9_depression", "gad7_anxiety"), \(.x) glmmTMB(as.formula(paste0(.x, " ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id)")), data = eTlong, family = binomial), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- exp(confint(models[[.x]]))
 				    ntv <- ntv[!grepl("\\(", rownames(ntv)),]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
@@ -915,9 +943,10 @@ addWorksheet(wb, sheetName = "Concurrent psychotherapy")
 writeData(wb, sheet = "Concurrent psychotherapy", sheetDT)
 
 
+models <- sapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongCP, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
-				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongCP, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
@@ -970,8 +999,10 @@ writeData(wb, sheet = "Full program", sheetDT)
 
 
 
-sheetDT <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) { 
-				    ntv <- intervals(lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongFP, na.action = na.omit), which = "fixed")[["fixed"]][-1, ]
+models <- sapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongFP, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]][-1, ]
 				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
 				     }))
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
