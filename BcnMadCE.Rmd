@@ -590,6 +590,16 @@ eff_size(fit14RG, sigma = sigma(fit14), edf = min(summary(pairs(fit14RG))$df))
 
 #### ITT -------------------------------------------------------------
 
+# models <- sapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) {
+#   fit <- lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
+#   vcCR <- vcovCR(fit, type = "CR2")
+#   fitRG <- emmeans(fit, "Randomization_Group", by = "time", vcov. = vcCR, mode = "appx-satterthwaite")
+#   fitRG.pw <- emmeans(fit, pairwise ~ Randomization_Group, by = "time", vcov = vcCR, mode = "appx-satterthwaite")
+#   return(list(model = fit, vcov = vcCR, emm = fitRG, pwemm = fitRG.pw))
+#   }, 
+#                  simplify = FALSE, USE.NAMES = TRUE)
+
+
 models <- sapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
 
 sheetDT <- rbindlist(lapply(names(models), \(.x) { 
@@ -609,6 +619,12 @@ kable(sheetDT, caption = "ITT models")
 ```
 
 ```{r}
+
+vcCR <- sapply(names(models), \(.x) vcovCR(models[[.x]], type = "CR2"), USE.NAMES = TRUE, simplify = FALSE)
+modelsRG <- lapply(names(models), \(.x) emmeans(models[[.x]], specs = "Randomization_Group", by = "time", vcov. = vcCR[[.x]], mode = "appx-satterthwaite"))
+
+fit14RG <- emmeans(fit14, "Randomization_Group", by = "time", vcov. = vcCR14, lmer.df = "satterthwaite")
+
 
 ```
 
