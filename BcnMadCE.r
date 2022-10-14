@@ -1,20 +1,22 @@
 # BcnMadCE.r
 # from BcnMadCEdata_wranfactors.r
 
-# Data directory ----------------------------------------------------------
+# OS ddependencies ----------------------------------------------------------
 
 
 if(Sys.info()["sysname"] == "Linux"){
-	data_add <- paste0("/media/",
+	data_path <- paste0("/media/",
 			   system("whoami", intern = TRUE),
 			   "/",
 			   system(paste0("ls /media/",system("whoami", intern = TRUE)), intern = TRUE),
 			   "/PSSJD/RESPOND/data/source/")
-	data_add <- data_add[file.exists(data_add)]
+	data_path <- data_path[file.exists(data_path)]
+	dev_lib_path <- "~/R/x86_64-pc-linux-gnu-library/dev"
 } else if(Sys.info()["sysname"] == "Windows"){
-	data_add <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
-	data_add <- data_add[file.exists(data_add)]
-	data_add <- paste0(data_add, "/")
+	data_path <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
+	data_path <- data_path[file.exists(data_path)]
+	data_path <- paste0(data_path, "/")
+	dev_lib_path <- .libPaths()
 }
 
 
@@ -31,7 +33,7 @@ if(Sys.info()["sysname"] == "Linux"){
 # library(car)
 # library(systemfit)
 # library(lmtest) # coefci
-# library(emmeans)
+library(emmeans, lib.loc = dev_lib_path)
 # library(scdhlm)
 # library(sandwich) # https://sandwich.r-forge.r-project.org/articles/sandwich.html
 # library(merDeriv) # estfun.lmerMod, bread.lmerMod # https://stackoverflow.com/a/70268157/997979
@@ -48,7 +50,7 @@ library(multcomp)
 library(clubSandwich)
 library(nlme)
 library(matrixStats)
-library(data.table)
+library(data.table, lib.loc = dev_lib_path)
 
 
 
@@ -57,7 +59,7 @@ library(data.table)
 
 # Data loading --------------------------------------------------------------
 
-load(paste0(data_add, "../target/BcnMadCE/CEdata2.rdata"))
+load(paste0(data_path, "../target/BcnMadCE/CEdata2.rdata"))
 
 
 
@@ -240,7 +242,7 @@ eT1l <- dcast(rbind(eT1lF,eT1lG)[, Randomization_Group := factor(Randomization_G
 
 
 sheetDT <- characteristics <- rbind(Npw, eT1s, eT1l)
-fwrite(characteristics, file = paste0(data_add, "../target/BcnMadCE/results/characteristicsT1.csv"))
+fwrite(characteristics, file = paste0(data_path, "../target/BcnMadCE/results/characteristicsT1.csv"))
 
 addWorksheet(wb, sheetName = "Table 1")
 writeData(wb, sheet = "Table 1", sheetDT)
@@ -362,17 +364,17 @@ setorder(NpwG, outcome, measure)
 sheetDT <- resultsT2 <- NpwG[(grepl("^(phq_ads|phq9|gad7|ptsd)$", outcome) & grepl("^(mean|Missing)", measure)) | outcome == "N" | grepl("^(phq9|gad7)_[a-z]+$", outcome)
                   ][c(1, 5, 4, 7, 6, 9, 8, 3, 2, 14, 15, 13, 11, 12, 10)]
 
-fwrite(resultsT2, file = paste0(data_add, "../target/BcnMadCE/results/resultsT2.csv"))
+fwrite(resultsT2, file = paste0(data_path, "../target/BcnMadCE/results/resultsT2.csv"))
 
 
 addWorksheet(wb, sheetName = "Table 2")
 writeData(wb, sheet = "Table 2", sheetDT)
 
-saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report.xlsx"), overwrite = TRUE)
+saveWorkbook(wb, paste0(data_path, "../target/BcnMadCE/results/report.xlsx"), overwrite = TRUE)
 
 ## ITT linear mixed model -------------------------------------------------------------------
 
-wb <- loadWorkbook(paste0(data_add, "../target/BcnMadCE/results/report.xlsx"))
+wb <- loadWorkbook(paste0(data_path, "../target/BcnMadCE/results/report.xlsx"))
 
 ### First tests -------------------------------------------------------------
 
@@ -722,12 +724,12 @@ addWorksheet(wb, sheetName = "Sensitivity - SQRT")
 writeData(wb, sheet = "Sensitivity - SQRT", sheetDT)
 
 
-saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report2.xlsx"), overwrite = TRUE)
+saveWorkbook(wb, paste0(data_path, "../target/BcnMadCE/results/report2.xlsx"), overwrite = TRUE)
 
 
 ### Binary outcomes (logistics models) sensitivity analyses -------------------------------------------------------------
 
-wb <- loadWorkbook(paste0(data_add, "../target/BcnMadCE/results/report2.xlsx"))
+wb <- loadWorkbook(paste0(data_path, "../target/BcnMadCE/results/report2.xlsx"))
 
 
 # sheetDT <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x) { 
@@ -909,7 +911,7 @@ addWorksheet(wb, sheetName = "PHQ-ADS Non missing frequency")
 writeData(wb, sheet = "PHQ-ADS Non missing frequency", sheetDT[["response.freq"]], rowNames = TRUE)
 
 
-saveWorkbook(wb, paste0(data_add, "../target/BcnMadCE/results/report3.xlsx"), overwrite = TRUE)
+saveWorkbook(wb, paste0(data_path, "../target/BcnMadCE/results/report3.xlsx"), overwrite = TRUE)
 
 
 
