@@ -394,20 +394,24 @@ fit1 <- lme(phq_ads ~ time + baseline_phq_ads + time:Randomization_Group, random
 # nlme::lme
 fit11 <- lme(phq_ads ~ Randomization_Group + time*Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
 # fit11 <- lme(phq_ads ~ time + time:Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit) # the same
-summary(fit11)
-intervals(fit11) # intervals(fit11, which = "fixed")[["fixed"]][-1,]
+# summary(fit11)
+# intervals(fit11) # intervals(fit11, which = "fixed")[["fixed"]][-1,]
+vcCR11 <- vcovCR(fit11, type = "CR2")
+# conf_int(fit11, vcov = vcCR11)
+
 # lme4::lmer
 fit14 <- lmer(phq_ads ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id), data = eTlong)
 # fit14 <- lmer(phq_ads ~ time + time:Randomization_Group + (1 | Record_Id), data = eTlong) # the same
-summary(fit14)
-cbind(fixef(fit14), confint(fit14)[-c(1,2),])
+# summary(fit14)
+# cbind(fixef(fit14), confint(fit14)[-c(1,2),])
 # sandwich(fit14) # sandwich, merDeriv # NOT working!!!
 vcCR <- vcovCR(fit14, type = "CR2")
-conf_int(fit14, vcov = vcCR)
+# conf_int(fit14, vcov = vcCR)
+
 # robustlmm::rlmer
-rfit14 <- rlmer(phq_ads ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id), data = eTlong) # robustlmm
-summary(rfit14)
-fixef(rfit14)
+# rfit14 <- rlmer(phq_ads ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id), data = eTlong) # robustlmm
+# summary(rfit14)
+# fixef(rfit14)
 # rCI <- BCaboot(model = rfit14, data = eTlong, clusterid = eTlong$Record_Id, methodCI = "wild", B = 10, confint.level = .95, BCa = TRUE) # NOT WORKING!!!
 
 
