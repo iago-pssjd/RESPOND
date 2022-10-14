@@ -624,17 +624,17 @@ esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x)
 				][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(time, outcome)
 				][, Cohens_d := paste0(Cohens_d, " (", CI_low,",",CI_high,")")]))[, .(time, outcome, Cohens_d)]
 
-esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+esOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
 			 eTlong[wave != 1, 
-				unlist(.(outcome = .x, (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+				unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
 				       recursive = FALSE), 
 				by = .(time)
 				][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(time, outcome)
 				][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(time, outcome, Odds_ratio)]
 
-esLOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+esLOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
 			  eTlong[wave != 1, 
-				 unlist(.(outcome = .x, (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+				 unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
 					recursive = FALSE), 
 				 by = .(time)
 				 ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(time, outcome)
@@ -691,17 +691,17 @@ esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
 				  ][, Hedges_g := paste0(Hedges_g, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Hedges_g)]
 
-esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+esOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
 			 eTlongPP[wave != 1, 
-				  unlist(.(outcome = .x, (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+				  unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
 					 recursive = FALSE), 
 				  by = .(wave)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
 				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
 
-esLOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+esLOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
 			  eTlongPP[wave != 1, 
-				   unlist(.(outcome = .x, (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+				   unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
 					  recursive = FALSE), 
 				   by = .(wave)
 				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
@@ -768,17 +768,17 @@ esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
 				  ][, Hedges_g := paste0(Hedges_g, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Hedges_g)]
 
-esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+esOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
 			 eTlongSS[wave != 1, 
-				  unlist(.(outcome = .x, (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+				  unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
 					 recursive = FALSE), 
 				  by = .(wave)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
 				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
 
-esLOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+esLOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
 			  eTlongSS[wave != 1, 
-				   unlist(.(outcome = .x, (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+				   unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
 					  recursive = FALSE), 
 				   by = .(wave)
 				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
@@ -818,17 +818,17 @@ esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(wave, outcome)
 				  ][, Cohens_d := paste0(Cohens_d, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Cohens_d)]
 
-esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+esOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
 			 eTlongFF[wave != 1, 
-				  unlist(.(outcome = .x, (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+				  unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
 					 recursive = FALSE), 
 				  by = .(wave)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
 				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
 
-esLOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+esLOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
 			  eTlongFF[wave != 1, 
-				   unlist(.(outcome = .x, (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+				   unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
 					  recursive = FALSE), 
 				   by = .(wave)
 				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
@@ -962,17 +962,17 @@ esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
 				  ][, Hedges_g := paste0(Hedges_g, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Hedges_g)]
 
-esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+esOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
 			 eTlongCP[wave != 1, 
-				  unlist(.(outcome = .x, (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+				  unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
 					 recursive = FALSE), 
 				  by = .(wave)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
 				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
 
-esLOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+esLOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
 			  eTlongCP[wave != 1, 
-				   unlist(.(outcome = .x, (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+				   unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
 					  recursive = FALSE), 
 				   by = .(wave)
 				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
@@ -1018,17 +1018,17 @@ esCD <- rbindlist(lapply(c("phq_ads", "phq9", "gad7", "ptsd"), \(.x)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
 				  ][, Hedges_g := paste0(Hedges_g, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Hedges_g)]
 
-esOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+esOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
 			 eTlongFP[wave != 1, 
-				  unlist(.(outcome = .x, (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+				  unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
 					 recursive = FALSE), 
 				  by = .(wave)
 				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
 				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
 
-esLOR <- rbindlist(lapply(c("phq9", "gad7"), \(.x)  
+esLOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
 			  eTlongFP[wave != 1, 
-				   unlist(.(outcome = .x, (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = factor(get(.x) < 10))])))), 
+				   unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
 					  recursive = FALSE), 
 				   by = .(wave)
 				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
