@@ -24,7 +24,7 @@ editor_options:
 knitr::opts_chunk$set(echo = FALSE, results = 'asis', 
                       fig.height = 10, fig.width = 10,
                       eval = TRUE, message = FALSE, warning = FALSE)
-# Data directory ----------------------------------------------------------
+# Data directory 
 
 if(Sys.info()["sysname"] == "Linux"){
 	data_path <- paste0("/media/",
@@ -42,7 +42,7 @@ if(Sys.info()["sysname"] == "Linux"){
 }
 
 
-# Libraries ---------------------------------------------------------------
+# Libraries
 
 library(patchwork)
 library(grid)
@@ -77,11 +77,11 @@ library(matrixStats)
 library(data.table, lib.loc = dev_lib_path)
 
 
-# Data loading --------------------------------------------------------------
+# Data loading 
 
 load(paste0(data_path, "../target/BcnMadCE/CEdata2.rdata"))
 
-# Data preparation  ----------------------------------------------------------------
+# Data preparation  
 
 Tlong[, `:=` (phq9_depression = factor(phq9 < 10, levels = c(FALSE, TRUE), labels = c("PHQ-9 >= 10", "PHQ-9 < 10")), gad7_anxiety = factor(gad7 < 10, levels = c(FALSE, TRUE), labels = c("GAD7 >= 10", "GAD7 < 10")))]
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
@@ -135,7 +135,7 @@ melt(eTlong[, aux := .N, by = .(wave,time)][, aux := unique(aux[wave == 1]) - au
   theme(axis.title.y = element_blank())
 
 
-# Data view ---------------------------------------------------------------
+# Data view 
 
 
 
@@ -245,12 +245,12 @@ kable(sheetDT, caption = "Retention rates")
 
 
 
-# Analysis  ----------------------------------------------------------------
+# Analysis  
 
-## Summaries ----------------------------------
+## Summaries 
 
 
-### First approximation ----------------------------------
+### First approximation 
 # outcomes <- c("phq_ads" = "phq9_0|gad7_", "phq9" = "phq9_0", "gad7" = "gad7_", "ptsd" = "pcl5_")
 # ST1 <- rbindlist(lapply(seq_along(outcomes), \(.x){
 # 				out <- names(outcomes)[.x]
@@ -276,7 +276,7 @@ kable(sheetDT, caption = "Retention rates")
 # 			    value.name, pattern = "^([a-zA-Z0-9]+)_([1234])$"))[order(outcome, coef)]
 
 
-### Similar per institution or group ----------------------------------------
+### Similar per institution or group 
 
 
 
@@ -308,7 +308,7 @@ kable(sheetDT, caption = "Retention rates")
 
 
 
-## Characteristics ---------------------------------------------------------
+## Characteristics 
 
 NpwF <- eTlong[wave == 1, .(Overall = .N)]
 NpwF[, `:=` (outcome = "N", measure = "N")]
@@ -377,7 +377,7 @@ kable(sheetDT, caption = "Table 1. Characteristics of the participants")
 ```{r}
 
 
-## Primary/Secondary outcomes description ----------------------------------
+## Primary/Secondary outcomes description 
 
 
 
@@ -534,11 +534,11 @@ Tcontpre[outcome %in% intOutcomes[1:4]][, `:=` (Om = Q1 - 1.5*(Q3 - Q1), OM = Q3
 ```{r tests, eval=FALSE}
 
 
-## ITT linear mixed model -------------------------------------------------------------------
+## ITT linear mixed model 
 
 # wb <- loadWorkbook(paste0(data_path, "../target/BcnMadCE/results/report.xlsx"))
 
-### First tests -------------------------------------------------------------
+### First tests 
 
 
 
@@ -553,7 +553,7 @@ fit1 <- lme(phq_ads ~ time + baseline_phq_ads + time:Randomization_Group, random
 # conf_int(fit1, vcov = vcCR) # clubSandwich
 
 
-### Robust reproducibility tests -------------------------------------------------------------
+### Robust reproducibility tests 
 
 # nlme::lme
 fit11 <- lme(phq_ads ~ Randomization_Group + time*Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
@@ -583,7 +583,7 @@ vcCR14 <- vcovCR(fit14, type = "CR2")
 
 
 
-### Contrasts/effect sizes analyses -------------------------------------------------------------
+### Contrasts/effect sizes analyses 
 set.seed(20221014)
 fit11RG <- emmeans(fit11, "Randomization_Group", by = "time", vcov. = vcCR11, mode = "appx-satterthwaite")
 fit11RG.pw <- emmeans(fit11, pairwise ~ Randomization_Group, by = "time", vcov = vcCR11, mode = "appx-satterthwaite")
@@ -616,7 +616,7 @@ eff_size(fit14RG, sigma = sigma(fit14), edf = min(summary(pairs(fit14RG))$df))
 ```{r crude_ITT}
 
 
-#### ITT -------------------------------------------------------------
+#### ITT 
 
 # models <- sapply(main.outcomes, \(.x) {
 #   fit <- lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
@@ -694,7 +694,7 @@ crudeST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, fo
 ```{r adjusted_ITT}
 
 
-#### ITT -------------------------------------------------------------
+#### ITT 
 
 models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + mhs + Institute_Abbreviation + baseline_", .x)), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
 
@@ -757,7 +757,7 @@ kable(merge(crudeST, adjustedST, by = c("outcome", "time"), suffixes = c(" (crud
 
 
 
-```{r ITT_EMM}
+```{r crude_ITT_EMM_plot}
 
 modelsRG <- crudeRG
 plotsRG <- lapply(names(modelsRG), \(.x) emmip(modelsRG[[.x]]$emmeans, Randomization_Group ~ time, CIs = TRUE) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 22.5)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "estimated score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
@@ -765,6 +765,15 @@ wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='b
 
 ```
 
+
+
+```{r adjusted_ITT_EMM_plot}
+
+modelsRG <- adjustedRG
+plotsRG <- lapply(names(modelsRG), \(.x) emmip(modelsRG[[.x]]$emmeans, Randomization_Group ~ time, CIs = TRUE) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 25)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "estimated score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
+
+```
 
 
 
@@ -834,8 +843,6 @@ vp <- viewport(x = 0.87, y = -0.025, width = 0.13, height = 1.025, just = c("lef
 pushViewport(vp)
 grid.draw(pgG2)
 popViewport()
-grab <- grid.grab()
-grid.draw(grab)
 
 ```
 
@@ -908,8 +915,6 @@ vp <- viewport(x = 0.87, y = -0.025, width = 0.13, height = 1.025, just = c("lef
 pushViewport(vp)
 grid.draw(pgG2)
 popViewport()
-grab <- grid.grab()
-grid.draw(grab)
 
 ```
 
@@ -973,7 +978,7 @@ rm(wb)
 
 ```{r PPdata}
 
-#### Per-Protocol PP -------------------------------------------------------------
+#### Per-Protocol PP 
 
 
 eTlong[Randomization_Group == "Intervention" & wave == 2, step_up := +(k10_score >= 16)][, step_up := step_up[wave == 2], by = .(Record_Id)]
@@ -992,7 +997,7 @@ kable(sheetDT, caption = "Participants in PP analysis")
 ```{r crude_PP}
 
 
-#### PP -------------------------------------------------------------
+#### PP 
 
 
 models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongPP, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
@@ -1040,7 +1045,6 @@ setnames(emmRG, "emmean", "estimate")
 setnames(esRG, "effect.size", "estimate")
 crudeST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, formatC, digits = 1, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes[c(1,2,4,3)], labels = plot.labels$axis[c(1,2,4,3)]), time = factor(time, levels = levels(time)[4:1]))],outcome + time ~ contrast, value.var = "value")
 
-kable(sheetDT, caption = "Estimated marginal means and 95 percent confidence intervals (PP)")
 
 
 
@@ -1051,10 +1055,87 @@ kable(sheetDT, caption = "Estimated marginal means and 95 percent confidence int
 
 
 
-```{r PP_EMM}
+```{r adjusted_PP}
+
+
+#### PP
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + mhs + Institute_Abbreviation + baseline_", .x)), random = ~ 1 | Record_Id, data = eTlongPP, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+
+
+```
+
+```{r adjusted_PP_EMM}
+
+vcCR <- sapply(names(models), \(.x) vcovCR(models[[.x]], type = "CR2"), USE.NAMES = TRUE, simplify = FALSE)
+set.seed(20221014)
+adjustedRG <- modelsRG <- sapply(names(models), \(.x) emmeans(models[[.x]], specs = pairwise ~ Randomization_Group, by = "time", vcov. = vcCR[[.x]], mode = "appx-satterthwaite"), USE.NAMES = TRUE, simplify = FALSE)
+sigmaRG <- sapply(names(models), \(.x) sigma(models[[.x]], USE.NAMES = TRUE, simplify = FALSE))
+edfRG <- sapply(names(modelsRG), \(.x) min(summary(modelsRG[[.x]]$contrasts)$df), USE.NAMES = TRUE, simplify = FALSE)
+
+adjusted_EMM <- emmRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(modelsRG[[.x]]$emmeans))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, Randomization_Group, time)]
+
+
+adjusted_PW <- conRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(confint(modelsRG[[.x]]$contrasts)))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+
+adjusted_esRG <- esRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(eff_size(modelsRG[[.x]]$contrasts, sigma = sigmaRG[[.x]], edf = edfRG[[.x]], method = "identity")))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+conRG[, contrast := "Difference"]
+esRG[, contrast := "Effect size"]
+setnames(emmRG, "Randomization_Group", "contrast")
+setnames(emmRG, "emmean", "estimate")
+setnames(esRG, "effect.size", "estimate")
+adjustedST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, formatC, digits = 1, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes[c(1,2,4,3)], labels = plot.labels$axis[c(1,2,4,3)]), time = factor(time, levels = levels(time)[4:1]))], outcome + time ~ contrast, value.var = "value")
+
+
+
+
+
+
+```
+
+
+
+
+
+```{r PP_EMM_kable}
+
+kable(merge(crudeST, adjustedST, by = c("outcome", "time"), suffixes = c(" (crude)", " (adjusted)")), caption = "Estimated marginal means and 95 percent confidence intervals (PP)")
+
+```
+
+
+
+```{r crude_PP_EMM_plot}
 
 modelsRG <- crudeRG
-plotsRG <- lapply(names(modelsRG), \(.x) emmip(modelsRG[[.x]]$emmeans, Randomization_Group ~ time, CIs = TRUE) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 22.5)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "estimated score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+plotsRG <- lapply(names(modelsRG), \(.x) emmip(modelsRG[[.x]]$emmeans, Randomization_Group ~ time, CIs = TRUE) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 23)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "estimated score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
+
+```
+
+
+
+```{r adjusted_PP_EMM_plot}
+
+modelsRG <- adjustedRG
+plotsRG <- lapply(names(modelsRG), \(.x) emmip(modelsRG[[.x]]$emmeans, Randomization_Group ~ time, CIs = TRUE) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 23)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "estimated score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
 wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
 
 ```
@@ -1128,8 +1209,6 @@ vp <- viewport(x = 0.87, y = -0.025, width = 0.13, height = 1.025, just = c("lef
 pushViewport(vp)
 grid.draw(pgG2)
 popViewport()
-grab <- grid.grab()
-grid.draw(grab)
 
 ```
 
@@ -1137,9 +1216,92 @@ grid.draw(grab)
 
 
 
+```{r adjusted_forestplot_PP}
+
+esRG <- adjusted_esRG
+
+# https://rpubs.com/SteadyStoffel/forest_plot
+# Main part of forestplot
+p1 <- ggplot(esRG[order(-time)][!grepl("T1", time)][, idy := factor(.N:1)], aes(y = idy, x = estimate)) +
+  geom_errorbarh(aes(xmin = lower.CL, xmax = upper.CL), height = 0, colour = "gray") +
+  geom_point(shape = 15, size = 3) +
+  geom_vline(xintercept = 0, cex = 0.25, colour = "gray") +
+  # scale_x_continuous(limits = c(-0.2, NA)) +
+  coord_cartesian(xlim = c(-0, NA)) +
+  labs(x = "Standardized effect size", title = "Effect sizes (adjusted models)") +
+  theme_classic() +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.line.y = element_blank(), axis.title.y = element_blank())
+  
+
+# Background for forestplot complements
+bgtbl <- ggplot(esRG[order(-time)][!grepl("T1", time)][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), idy = factor(.N:1))], aes(y=label)) + 
+  theme_classic() +
+  ylab(NULL) + 
+  xlab("  ") + 
+  theme(plot.title = element_text(hjust = 0.5, size=10), 
+        ## This is used to help with alignment
+        axis.text.x = element_text(color = "white", hjust = -3, size = 25), 
+        axis.line = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.title.y = element_blank(), 
+        legend.position = "none")
+
+# forestplot Complements
+txtscale <- 3.5
+p2 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = value), size = txtscale) +
+  labs(title = "Effect size (95% CI)")
+p3 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = outcome), size = txtscale) +
+  labs(title = "Outcome")
+p4 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = sub("^T\\d\\. ", "", time)), size = txtscale) +
+  labs(title = "Time")
+
+pgG1 <- ggplotGrob(p1)
+pgG2 <- ggplotGrob(p2)
+pgG3 <- ggplotGrob(p3)
+pgG4 <- ggplotGrob(p4)
+
+grid::grid.newpage()
+vp <- viewport(x = 0.0, y = -0.025, width = 0.15, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG4)
+popViewport()
+vp <- viewport(x = 0.15, y = -0.025, width = 0.08, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG3)
+popViewport()
+vp <- viewport(x = 0.23, y = +0.000, width = 0.64, height = 1.000, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG1)
+popViewport()
+vp <- viewport(x = 0.87, y = -0.025, width = 0.13, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG2)
+popViewport()
+
+```
 
 
-```{r, eval=FALSE}
+
+
+```{r raw_PP}
+
+crude_EMM[, `:=` (model = "crude", type = "EMM")]
+adjusted_EMM[, `:=` (model = "adjusted", type = "EMM")]
+crude_PW[, `:=` (model = "crude", type = "Diff-EMM")]
+adjusted_PW[, `:=` (model = "adjusted", type = "Diff-EMM")]
+crude_esRG[, `:=` (model = "crude", type = "PWES-EMM")]
+adjusted_esRG[, `:=` (model = "adjusted", type = "PWES-EMM")]
+kable(setcolorder(rbind(crude_EMM, adjusted_EMM, crude_PW, adjusted_PW, crude_esRG, adjusted_esRG), c("model", "type")), caption = "Raw data")
+
+```
+
+
+
+```{r non-adjusted-effect-sizes_PP, eval=FALSE}
 
 
 
@@ -1175,8 +1337,16 @@ sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLO
 # addWorksheet(wb, sheetName = "Effect sizes (PP)")
 # writeData(wb, sheet = "Effect sizes (PP)", sheetDT)
 
-### Sensitivity analyses per site -------------------------------------------------------------
-#### ITT -------------------------------------------------------------
+
+```
+
+
+
+```{r, eval=FALSE}
+
+
+### Sensitivity analyses per site 
+#### ITT 
 
 models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
 
@@ -1191,7 +1361,7 @@ setcolorder(sheetDT, "est.", before = "lower")
 # addWorksheet(wb, sheetName = "Sensitivity - ITT nested")
 # writeData(wb, sheet = "Sensitivity - ITT nested", sheetDT)
 
-#### Per-Protocol PP -------------------------------------------------------------
+#### Per-Protocol PP 
 
 models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlongPP, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
 
@@ -1204,7 +1374,7 @@ setcolorder(sheetDT, "est.", before = "lower")
 # addWorksheet(wb, sheetName = "Sensitivity - PP nested")
 # writeData(wb, sheet = "Sensitivity - PP nested", sheetDT)
 
-### Symptom severity sensitivity analyses -------------------------------------------------------------
+### Symptom severity sensitivity analyses 
 
 eTlongSS <- eTlong[, aux := NULL][wave == 1, aux := phq_ads >= 20][, aux := aux[wave == 1], by = .(Record_Id)][aux == TRUE]
 sheetDT <- unique(eTlongSS, by = c("Record_Id", "Randomization_Group"))[, .N, .(Randomization_Group)]
@@ -1253,7 +1423,7 @@ sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLO
 # writeData(wb, sheet = "Effect sizes distressed", sheetDT)
 
 
-### Female sensitivity analyses -------------------------------------------------------------
+### Female sensitivity analyses 
 
 eTlongFF <- eTlong[t0_soc_01 == "Mujer"]
 sheetDT <- unique(eTlongFF[, .(Record_Id, Randomization_Group)])[, .N, by = .(Randomization_Group)]
@@ -1305,7 +1475,7 @@ sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLO
 
 
 
-### Adjusted estimates (incl. baseline covariate) sensitivity analyses -------------------------------------------------------------
+### Adjusted estimates (incl. baseline covariate) sensitivity analyses 
 
 cols <- c("t0_soc_18", "Institute_Abbreviation")
 eTlong[, (cols) := lapply(.SD, \(.x) factor(.x, levels = levels(.x)[c(2,1)])), .SDcols = cols]
@@ -1329,7 +1499,7 @@ setcolorder(sheetDT, "est.", before = "lower")
 
 
 
-### Complete case sensitivity analyses -------------------------------------------------------------
+### Complete case sensitivity analyses 
 
 
 
@@ -1353,7 +1523,7 @@ setcolorder(sheetDT, "est.", before = "lower")
 # addWorksheet(wb, sheetName = "Sensitivity - CC")
 # writeData(wb, sheet = "Sensitivity - CC", sheetDT)
 
-### Sqrt outcomes sensitivity analyses -------------------------------------------------------------
+### Sqrt outcomes sensitivity analyses 
 
 models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0("sqrt(", .x,") ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
 
@@ -1371,7 +1541,7 @@ setcolorder(sheetDT, "est.", before = "lower")
 # saveWorkbook(wb, paste0(data_path, "../target/BcnMadCE/results/report2.xlsx"), overwrite = TRUE)
 
 
-### Binary outcomes (logistics models) sensitivity analyses -------------------------------------------------------------
+### Binary outcomes (logistics models) sensitivity analyses 
 
 # wb <- loadWorkbook(paste0(data_path, "../target/BcnMadCE/results/report2.xlsx"))
 
@@ -1398,7 +1568,7 @@ setcolorder(sheetDT, "Estimate", before = "2.5 %")
 
 
 
-### Concurrent psychotherapy sensitivity analyses -------------------------------------------------------------
+### Concurrent psychotherapy sensitivity analyses 
 
 eTlongCP <- eTlong[, aux := NULL][, aux := .N, by = .(Record_Id)][(csri_sp_mental_g_n == 0 | is.na(csri_sp_mental_g_n)) & (csri_sp_mental_i_n == 0 | is.na(csri_sp_mental_i_n))][, aux2 := .N, by = .(Record_Id)][aux == aux2]
 sheetDT <- unique(eTlongCP[, .(Record_Id, Randomization_Group)])[, .N, by = .(Randomization_Group)]
@@ -1450,7 +1620,7 @@ sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLO
 
 
 
-### Full programme sensitivity analyses -------------------------------------------------------------
+### Full programme sensitivity analyses 
 
 eTlongFP <- eTlong[Randomization_Group == "Control" | (dwmN >= 3 & pmN >= 4)]
 sheetDT <- eTlongFP[, unique(.SD[, .(Record_Id, Randomization_Group)])][, .N, by = .(Randomization_Group)]
