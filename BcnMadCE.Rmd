@@ -236,7 +236,7 @@ kable(sheetDT, caption = "Retention rates")
 ```
 
 
-# Results
+# Main Results
 
 
 ## Table 1
@@ -756,11 +756,29 @@ kable(merge(crudeST, adjustedST, by = c("outcome", "time"), suffixes = c(" (crud
 ```
 
 
+```{r plot_test_emmip, eval=FALSE}
+
+# Reproducing emmip
+
+# emmip(modelsRG[[1]]$emmeans, Randomization_Group ~ time, CIs = TRUE)
+
+# ggplot(data.frame(modelsRG[[1]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + 
+#   geom_line(aes(group = Randomization_Group), position = position_dodge(0.1)) + 
+#   geom_linerange(aes(ymin = lower.CL, ymax = upper.CL), 
+#                  alpha = 0.5, position = position_dodge(0.1), linetype = "solid", lwd = 2) + 
+#   geom_point(position = position_dodge(0.1))
+
+# ggplot(data.frame(modelsRG[[1]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + 
+#   geom_line(aes(group = Randomization_Group)) +
+#   geom_point() +
+#   geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2)
+```
+
 
 ```{r crude_ITT_EMM_plot}
 
 modelsRG <- crudeRG
-plotsRG <- lapply(names(modelsRG), \(.x) emmip(modelsRG[[.x]]$emmeans, Randomization_Group ~ time, CIs = TRUE) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 22.5)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "estimated score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + geom_line(aes(group = Randomization_Group)) + geom_point() + geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 22.5)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
 wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
 
 ```
@@ -770,7 +788,7 @@ wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='b
 ```{r adjusted_ITT_EMM_plot}
 
 modelsRG <- adjustedRG
-plotsRG <- lapply(names(modelsRG), \(.x) emmip(modelsRG[[.x]]$emmeans, Randomization_Group ~ time, CIs = TRUE) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 25)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "estimated score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + geom_line(aes(group = Randomization_Group)) + geom_point() + geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 25)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Adjusted EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
 wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
 
 ```
@@ -972,7 +990,8 @@ rm(wb)
 
 ```
 
-## Models (per protocol)
+# Pre-specified per-protocol analyses
+
 
 
 
@@ -1125,7 +1144,7 @@ kable(merge(crudeST, adjustedST, by = c("outcome", "time"), suffixes = c(" (crud
 ```{r crude_PP_EMM_plot}
 
 modelsRG <- crudeRG
-plotsRG <- lapply(names(modelsRG), \(.x) emmip(modelsRG[[.x]]$emmeans, Randomization_Group ~ time, CIs = TRUE) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 23)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "estimated score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + geom_line(aes(group = Randomization_Group)) + geom_point() + geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 23)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
 wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
 
 ```
@@ -1135,7 +1154,7 @@ wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='b
 ```{r adjusted_PP_EMM_plot}
 
 modelsRG <- adjustedRG
-plotsRG <- lapply(names(modelsRG), \(.x) emmip(modelsRG[[.x]]$emmeans, Randomization_Group ~ time, CIs = TRUE) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 23)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "estimated score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + geom_line(aes(group = Randomization_Group)) + geom_point() + geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 23)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Adjusted EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
 wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
 
 ```
@@ -1340,7 +1359,7 @@ sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLO
 
 ```
 
-
+# Post-hoc sensitivity analyses
 
 ```{r, eval=FALSE}
 
