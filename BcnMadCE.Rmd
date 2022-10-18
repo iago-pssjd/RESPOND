@@ -90,8 +90,15 @@ eTlong[, `:=` (age = year(Survey_Completed_On) - t0_soc_02,
 	       to_soc_covid19 = fifelse(covid19_1 == "No", FALSE, TRUE), 
 	       t0_soc_site = fifelse(Institute_Abbreviation == "SJD", "Bcn", "Mad"))
        ][, `:=` (baseline_phq_ads = phq_ads[wave == 1],
+		 baseline_phq9 = phq9[wave == 1],
+		 baseline_gad7 = gad7[wave == 1],
+		 baseline_ptsd = ptsd[wave == 1],
+		 mhs = factor(fifelse((csri_sp_mental_g_n == 0 | is.na(csri_sp_mental_g_n)) & (csri_sp_mental_i_n == 0 | is.na(csri_sp_mental_i_n)), 0, 1)),
 		 time = factor(wave, levels = 1:4, labels = c("T1. Baseline", "T2. Week 7 (post DWM)", "T3. Week 13 (post PM+)", "T4. Week 21 (follow-up)"))), 
        by = .(Record_Id)]
+
+
+
 
 
 main.outcomes <- c("phq_ads", "phq9", "gad7", "ptsd")
@@ -689,7 +696,7 @@ crudeST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, fo
 
 #### ITT -------------------------------------------------------------
 
-models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + age + t0_soc_12 + t0_soc_18 + Institute_Abbreviation + baseline_phq_ads")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + mhs + Institute_Abbreviation + baseline_", .x)), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
 
 sheetDT <- rbindlist(lapply(names(models), \(.x) { 
 				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
@@ -1304,7 +1311,7 @@ cols <- c("t0_soc_18", "Institute_Abbreviation")
 eTlong[, (cols) := lapply(.SD, \(.x) factor(.x, levels = levels(.x)[c(2,1)])), .SDcols = cols]
 
 
-models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + t0_soc_18 + Institute_Abbreviation + baseline_phq_ads")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + t0_soc_18 + Institute_Abbreviation + baseline_", .x)), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
 
 sheetDT <- rbindlist(lapply(names(models), \(.x) { 
 				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
