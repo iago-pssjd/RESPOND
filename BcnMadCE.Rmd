@@ -531,18 +531,24 @@ Tcontpre[outcome %in% intOutcomes[1:4]][, `:=` (Om = Q1 - 1.5*(Q3 - Q1), OM = Q3
 ```
 
 
-```{r, eval=FALSE}
+```{r}
 
-eTlong[wave == 2, .(Record_Id, k10_score, T0_K10_score, Randomization_Group)][, `:=` (k10m = pmin(k10_score, T0_K10_score), k10M = pmax(k10_score, T0_K10_score), k10bool = factor(fcase(T0_K10_score > k10_score, 1, T0_K10_score < k10_score, -1, default = rep(0, .N)))), by = .(Record_Id)] |> 
+set.seed(41)
+eTlong[wave == 2, .(Record_Id, k10_score, T0_K10_score, Randomization_Group)][, `:=` (k10m = pmin(k10_score, T0_K10_score), k10M = pmax(k10_score, T0_K10_score), k10mean = k10_score + T0_K10_score, k10bool = factor(fcase(T0_K10_score > k10_score, 1, T0_K10_score < k10_score, -1, default = rep(0, .N)))), by = .(Record_Id)][order(k10mean, decreasing = FALSE)][, Record_Id := factor(Record_Id, levels = Record_Id)] |> 
   melt(measure.vars = c("k10_score", "T0_K10_score"), variable.name = "tp", value.name = "k10") |> 
-  na.omit() |> 
+  na.omit() |>
   ggplot(aes(x = k10, y = Record_Id)) +
-  geom_linerange(aes(xmin = k10m, xmax = k10M, colour = k10bool)) +
-  geom_point(aes(shape = tp)) +
-  scale_colour_manual(values = c("red", "green", "gray")) +
+  geom_linerange(aes(xmin = k10m, xmax = k10M, colour = k10bool), size = 0.5) +
+  geom_point(aes(shape = tp), colour = "gray") +
+  geom_ribbon(aes(xmin = -Inf, xmax = 16, group = Randomization_Group), orientation = 'y', colour = "gray60", alpha = 0.5) +
+  annotate(geom = "text", label = "K-10 < 16", x = 12, y = sample(eTlong$Record_Id, size = 1), size = 3, colour = "white") +
+  scale_colour_manual(name = "Change in K-10 score", labels = c("Better", "Worse", "No change"), values = c("green", "red", "gray")) +
+  scale_shape_manual(name = "Time", labels = c("Baseline", "Week 7 (post DWM)"), values = c(19, 17), limits = c("T0_K10_score", "k10_score")) +
   facet_grid(rows = vars(Randomization_Group)) +
+  labs(x = "K-10 score", y = "Participant", title = "Changes in psychological distress (K-10 scores) at T2 (post DWM)") +
   theme_classic() +
   theme(axis.text.y = element_blank(), legend.position = "bottom")
+
 ```
 
 
