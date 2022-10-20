@@ -53,7 +53,11 @@ MT4 <- fread(paste0(data_path, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T4_
 
 items <- fread(paste0(data_path, "BcnMadCE/survey_variablelist.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
 
-
+MO <- c(0, 0.084, 0.099, 0.249, 0.337)
+SC <- c(0, 0.050, 0.053, 0.164, 0.196)
+UA <- c(0, 0.044, 0.049, 0.135, 0.153)
+PD <- c(0, 0.078, 0.101, 0.245, 0.382)
+AD <- c(0, 0.081, 0.128, 0.270, 0.348)
 
 # Pre-operations --------------------------------------------------------------
 
