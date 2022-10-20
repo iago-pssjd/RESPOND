@@ -3,22 +3,24 @@
 # to BcnMadCEdata_SR.r
 
 
-# Data directory ----------------------------------------------------------
+
+# OS ddependencies ----------------------------------------------------------
 
 
 if(Sys.info()["sysname"] == "Linux"){
-	data_add <- paste0("/media/",
+	data_path <- paste0("/media/",
 			   system("whoami", intern = TRUE),
 			   "/",
 			   system(paste0("ls /media/",system("whoami", intern = TRUE)), intern = TRUE),
 			   "/PSSJD/RESPOND/data/source/")
-	data_add <- data_add[file.exists(data_add)]
+	data_path <- data_path[file.exists(data_path)]
+	dev_lib_path <- "~/R/x86_64-pc-linux-gnu-library/dev"
 } else if(Sys.info()["sysname"] == "Windows"){
-	data_add <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
-	data_add <- data_add[file.exists(data_add)]
-	data_add <- paste0(data_add, "/")
+	data_path <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
+	data_path <- data_path[file.exists(data_path)]
+	data_path <- paste0(data_path, "/")
+	dev_lib_path <- .libPaths()
 }
-
 
 
 # Libraries ---------------------------------------------------------------
@@ -26,7 +28,7 @@ if(Sys.info()["sysname"] == "Linux"){
 
 
 library(matrixStats)
-library(data.table)
+library(data.table, lib.loc = dev_lib_path)
 
 
 
@@ -35,21 +37,21 @@ library(data.table)
 
 # Data loading --------------------------------------------------------------
 
-screening <- fread(paste0(data_add, "BcnMadCE/BcnData/BCN_Spain_export_20220906_v2.csv"), sep = ";", na.strings = c("NA", ""), key = "Record Id")
-T1 <- fread(paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T1_V3_enviada_CSV.csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
-T2 <- fread(paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T2_V3_enviada_CSV.csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
-T3 <- fread(paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T3_V3_enviada_CSV.csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
-T4 <- fread(paste0(data_add, "../target/BcnMadCE/BcnData/RESPOND WP4 T4_V3_enviada_CSV.csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
+screening <- fread(paste0(data_path, "BcnMadCE/BcnData/BCN_Spain_export_20220906_v2.csv"), sep = ";", na.strings = c("NA", ""), key = "Record Id")
+T1 <- fread(paste0(data_path, "../target/BcnMadCE/BcnData/RESPOND WP4 T1_V3_enviada_CSV.csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
+T2 <- fread(paste0(data_path, "../target/BcnMadCE/BcnData/RESPOND WP4 T2_V3_enviada_CSV.csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
+T3 <- fread(paste0(data_path, "../target/BcnMadCE/BcnData/RESPOND WP4 T3_V3_enviada_CSV.csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
+T4 <- fread(paste0(data_path, "../target/BcnMadCE/BcnData/RESPOND WP4 T4_V3_enviada_CSV.csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
 
 
-Mscreening <- fread(paste0(data_add, "BcnMadCE/MadData/RESPOND_-_Spain_export_20220919.csv"), sep = ";", na.strings = c("NA", ""), key = "Participant Id")
-MT1 <- fread(paste0(data_add, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T1_export_20220818(1).csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
-MT2 <- fread(paste0(data_add, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T2_export_20220818(1).csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
-MT3 <- fread(paste0(data_add, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T3_export_20220818(1).csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
-MT4 <- fread(paste0(data_add, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T4_export_20220818(1).csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
+Mscreening <- fread(paste0(data_path, "BcnMadCE/MadData/RESPOND_-_Spain_export_20220919.csv"), sep = ";", na.strings = c("NA", ""), key = "Participant Id")
+MT1 <- fread(paste0(data_path, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T1_export_20220818(1).csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
+MT2 <- fread(paste0(data_path, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T2_export_20220818(1).csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
+MT3 <- fread(paste0(data_path, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T3_export_20220818(1).csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
+MT4 <- fread(paste0(data_path, "BcnMadCE/MadData/RESPOND_-_Spain_RESPOND_WP4_T4_export_20220818(1).csv"), sep = ";", na.strings = c("NA", ""), key = "Castor Record ID")
 
 
-items <- fread(paste0(data_add, "BcnMadCE/survey_variablelist.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
+items <- fread(paste0(data_path, "BcnMadCE/survey_variablelist.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
 
 
 
@@ -183,4 +185,4 @@ Tlong[, phq9 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^phq9_0\\d")
 
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
-save(Tdata, MTdata, Tlong, enTlong, screening, eTlong, file = paste0(data_add, "../target/BcnMadCE/CEdata.rdata"))
+save(Tdata, MTdata, Tlong, enTlong, screening, eTlong, file = paste0(data_path, "../target/BcnMadCE/CEdata.rdata"))
