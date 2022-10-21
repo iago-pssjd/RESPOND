@@ -965,12 +965,12 @@ saveWorkbook(wb, paste0(data_path, "../target/BcnMadCE/results/report3.xlsx"), o
 p <- Tcontpre[outcome %in% c("EuroQoL_index", "eq5d5l_6")][, `:=` (Om = Q1 - 1.5*(Q3 - Q1), OM = Q3 + 1.5*(Q3 - Q1), outcome = factor(outcome), time = factor(time, labels = sub("^T\\d\\. ", "", levels(time))))] |> 
   ggplot(aes(x = time, y = mean, colour = Randomization_Group)) +
   geom_line(aes(group = Randomization_Group)) +
-  geom_text_repel(aes(label = round(mean, 2)), vjust = 2) +
+  geom_text_repel(aes(label = round(mean, 2)), vjust = 2, show.legend = FALSE) +
   geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
   scale_y_continuous(limits = \(.x) c(ifelse(max(.x, na.rm = TRUE) > 1, 0, -0.5), 10^ceiling(log10(.x)))) +
   facet_grid(rows = vars(outcome), scales = "free") +
   labs(x = "Timepoint", y = "Mean score value", title = "Mean and 95% CI for EQ5D5L scales per group across waves") +
-  theme(legend.position = "top")
+  theme(legend.position = "bottom")
 
 
 ggdata <- na.omit(melt(eTlong[, .(EuroQoL_index, eq5d5l_6, time, Randomization_Group)], id.vars = c("time", "Randomization_Group")))
@@ -978,10 +978,11 @@ ggdata <- na.omit(melt(eTlong[, .(EuroQoL_index, eq5d5l_6, time, Randomization_G
 q <- ggplot(ggdata, aes(x = time, y = value, colour = Randomization_Group)) +
   geom_boxplot(width = 0.1) +
   geom_line(data = ggdata[, .(value = median(value, na.rm = TRUE)), by = .(time, variable, Randomization_Group)], aes(group = Randomization_Group)) +
-  geom_text_repel(data = ggdata[, .(value = median(value, na.rm = TRUE)), by = .(time, variable, Randomization_Group)], aes(label = round(value, 2))) +
+  geom_text_repel(data = ggdata[, .(value = median(value, na.rm = TRUE)), by = .(time, variable, Randomization_Group)], aes(label = round(value, 2)), show.legend = FALSE) +
   scale_y_continuous(limits = \(.x) c(ifelse(max(.x, na.rm = TRUE) > 1, 0, -0.5), max(.x, na.rm = TRUE))) +
   facet_grid(rows = vars(variable), scales = "free") +
-  labs(x = "Timepoint", y = "Median score value", title = "Boxplots for EQ5D5L scales per group across waves")
+  labs(x = "Timepoint", y = "Median score value", title = "Boxplots for EQ5D5L scales per group across waves") +
+  theme(legend.position = "bottom")
 
 ggsave(paste0(data_path, "../../BcnMadDOCS/EQ5D5LmperTIMEandGROUP.png"), p, width = 20, height = 35, units = "cm")
 ggsave(paste0(data_path, "../../BcnMadDOCS/EQ5D5LbperTIMEandGROUP.png"), q, width = 20, height = 35, units = "cm")
