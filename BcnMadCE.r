@@ -257,7 +257,7 @@ writeData(wb, sheet = "Table 1", sheetDT)
 
 
 intOutcomes <- c("phq_ads", "phq9", "gad7", "ptsd", "passc", "eq5d5l_6")
-contOutcomes <- c(intOutcomes, grep("^(csri_sp|RES_E)", names(Tlong), value = TRUE))
+contOutcomes <- c(intOutcomes, grep("^(csri_sp|RES_E|EuroQoL_index)", names(Tlong), value = TRUE))
 c2dOutcomes <- c("phq9_depression", "gad7_anxiety")
 catOutcomes <- c(c2dOutcomes, grep("^(m_T1_CSRI_SP|btq_\\d+$|covid19_)|(?i)^eq5d5l_[12345]", names(Tlong), value = TRUE))
 
@@ -371,6 +371,7 @@ sheetDT <- resultsT2 <- NpwG[(grepl("^(phq_ads|phq9|gad7|ptsd)$", outcome) & gre
                   ][c(1, 5, 4, 7, 6, 9, 8, 3, 2, 14, 15, 13, 11, 12, 10)]
 
 fwrite(resultsT2, file = paste0(data_path, "../target/BcnMadCE/results/resultsT2.csv"))
+fwrite(NpwG, file = paste0(data_path, "../target/BcnMadCE/results/descriptives.csv"))
 
 
 addWorksheet(wb, sheetName = "Table 2")
@@ -954,5 +955,8 @@ writeData(wb, sheet = "PHQ-ADS Non missing frequency", sheetDT[["response.freq"]
 
 saveWorkbook(wb, paste0(data_path, "../target/BcnMadCE/results/report3.xlsx"), overwrite = TRUE)
 
+
+
+# EuroQoL -----------------------------------------------------------------
 
 
