@@ -26,7 +26,7 @@ if(Sys.info()["sysname"] == "Linux"){
 
 # library(marginaleffects)
 # library(modelsummary)
-# library(ggplot2)
+library(ggplot2)
 # library(performance)
 # library(formattable)
 # library(compareGroups)
@@ -284,7 +284,7 @@ eT2s <- eTlong[, unlist(lapply(.SD, \(.x) {
 					  Q1 = quantile(.x, probs = 0.25, na.rm = TRUE),
 					  Q3 = quantile(.x, probs = 0.75, na.rm = TRUE))}), 
 		      recursive = FALSE), 
-               by = .(wave, time, Randomization_Group),
+               by = .(wave, time),
 	       .SDcols = contOutcomes]
 
 
@@ -312,7 +312,7 @@ Tcont[, `:=` (`mean (sd) [CI]` = paste0(mean, " (", sd,") [", lower, ",", upper,
 	   `Missing` = formatC(miss, format = "d"),
 	   `Shapiro-Wilk test p-value` = formatC(stpv0, digits = 3, format = "g"))]
 
-Tcont <- dcast(melt(Tcont, id.vars = c("wave", "Randomization_Group", "outcome"), measure.vars = grep("\\(|-|Missing", names(Tcont)), variable.name = "measure"), outcome + measure ~ wave + Randomization_Group, value.var = "value")
+Tcont <- dcast(melt(Tcont, id.vars = c("wave", "outcome"), measure.vars = grep("\\(|-|Missing", names(Tcont)), variable.name = "measure"), outcome + measure ~ wave, value.var = "value")
 
 setorder(Tcont, -outcome, measure)
 
@@ -323,13 +323,13 @@ setorder(Tcont, -outcome, measure)
 
 
 eT2l <- rbindlist(lapply(catOutcomes, \(.x){
-			 setnames(eTlong[,.N, by = c(.x, "wave", "Randomization_Group")][, outcome := .x], old = .x, new = "measure")
+			 setnames(eTlong[,.N, by = c(.x, "wave")][, outcome := .x], old = .x, new = "measure")
 				     }))
 setcolorder(eT2l, "outcome")
-eT2l[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome, wave, Randomization_Group)
+eT2l[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome, wave)
      ][, Np := paste0(N, " (", formatC(p, digits = 0, format = "f"), "%)")]
-setorder(eT2l, outcome, Randomization_Group, wave, measure)
-Tcat <- dcast(eT2l, outcome + measure ~ wave + Randomization_Group, value.var = c("Np"), fill = "0 (0.00%)")
+setorder(eT2l, outcome, wave, measure)
+Tcat <- dcast(eT2l, outcome + measure ~ wave, value.var = c("Np"), fill = "0 (0.00%)")
 cols <- grep("outcome|measure", names(Tcat), invert = TRUE, value = TRUE)
 Tcat[, `:=` (measure = factor(fifelse(is.na(measure), "Missing", as.character(measure)), levels = c(levels(Tcat$measure), "Missing")))][, (cols) := lapply(.SD, \(.x) fifelse(measure == "Missing", sub(" \\(.*$", "", .x), .x)), .SDcols = cols]
 
@@ -337,14 +337,14 @@ Tcat[, `:=` (measure = factor(fifelse(is.na(measure), "Missing", as.character(me
 
 
 
-NpwG <- dcast(melt(eTlong[, .N, by = .(wave, Randomization_Group)][, Missing := N[wave == 1] - N, by = .(Randomization_Group)][], measure.vars = c("N", "Missing"), variable.name = "measure"), measure ~ wave + Randomization_Group, value.var = "value")
+NpwG <- dcast(melt(eTlong[, .N, by = .(wave)][, Missing := N[wave == 1] - N], measure.vars = c("N", "Missing"), variable.name = "measure"), measure ~ wave, value.var = "value")
 NpwG[, outcome := measure]
 setcolorder(NpwG, "outcome")
 
 misscont <- Tcont[, unique(.SD[measure == "Missing", .(outcome, measure)])]
 misscat <- Tcat[, unique(.SD[measure == "Missing", .(outcome, measure)])]
 misscat <- rbind(misscat, data.table(outcome = "phq9_depression", measure = "Missing"))
-NpwG <- NpwG[c(1, 2, rep(2, nrow(misscont)), rep(2, nrow(misscat)))][3:(2 + nrow(misscont)), outcome := misscont$outcome][(3 + nrow(misscont)):(2 + nrow(misscont) + nrow(misscat)), outcome := misscat$outcome][]
+NpwG <- NpwG[c(1, 2, rep(2, nrow(misscont)), rep(2, nrow(misscat)))][3:(2 + nrow(misscont)), outcome := misscont$outcome][(3 + nrow(misscont)):(2 + nrow(misscont) + nrow(misscat)), outcome := misscat$outcome]
 
 
 # NpwG <- dcast(eTlong[, .N, by = .(wave, Randomization_Group)], . ~ wave + Randomization_Group, value.var = "N")
@@ -371,7 +371,7 @@ sheetDT <- resultsT2 <- NpwG[(grepl("^(phq_ads|phq9|gad7|ptsd)$", outcome) & gre
                   ][c(1, 5, 4, 7, 6, 9, 8, 3, 2, 14, 15, 13, 11, 12, 10)]
 
 fwrite(resultsT2, file = paste0(data_path, "../target/BcnMadCE/results/resultsT2.csv"))
-fwrite(NpwG, file = paste0(data_path, "../target/BcnMadCE/results/descriptives.csv"))
+fwrite(NpwG, file = paste0(data_path, "../target/BcnMadCE/results/DESCperTIME.csv"))
 
 
 addWorksheet(wb, sheetName = "Table 2")
@@ -959,4 +959,27 @@ saveWorkbook(wb, paste0(data_path, "../target/BcnMadCE/results/report3.xlsx"), o
 
 # EuroQoL -----------------------------------------------------------------
 
+p <- Tcontpre[outcome %in% c("EuroQoL_index", "eq5d5l_6")][, `:=` (Om = Q1 - 1.5*(Q3 - Q1), OM = Q3 + 1.5*(Q3 - Q1), outcome = factor(outcome), time = factor(time, labels = sub("^T\\d\\. ", "", levels(time))))] |> 
+  ggplot(aes(x = time, y = mean)) +
+  geom_line(aes(group = NA)) +
+  geom_text(aes(label = round(mean, 2)), vjust = -2) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  scale_colour_manual(values = c("black", "gray")) +
+  scale_y_continuous(limits = \(.x) c(ifelse(max(.x, na.rm = TRUE) > 1, 0, -0.5), 10^ceiling(log10(.x)))) +
+  facet_grid(rows = vars(outcome), scales = "free") +
+  labs(x = "Timepoint", y = "Mean score value", title = "Mean and 95% CI for EQ5D5L scales across waves") +
+  theme(legend.position = "top", axis.title.y = element_blank())
 
+
+ggdata <- na.omit(melt(eTlong[, .(EuroQoL_index, eq5d5l_6, time)], id.vars = "time"))
+
+q <- ggplot(ggdata, aes(x = time, y = value)) +
+  geom_boxplot(width = 0.1) +
+  geom_line(data = ggdata[, .(value = median(value, na.rm = TRUE)), by = .(time, variable)], aes(group = NA)) +
+  scale_y_continuous(limits = \(.x) c(ifelse(max(.x, na.rm = TRUE) > 1, 0, -0.5), max(.x, na.rm = TRUE))) +
+  facet_grid(rows = vars(variable), scales = "free") +
+  labs(x = "Timepoint", y = "Median score value", title = "Boxplots for EQ5D5L scales across waves")
+
+ggsave(paste0(data_path, "../../BcnMadDOCS/EQ5D5LmperTIME.png"), p, width = 20, height = 25, units = "cm")
+ggsave(paste0(data_path, "../../BcnMadDOCS/EQ5D5LbperTIME.png"), q, width = 20, height = 25, units = "cm")
+  
