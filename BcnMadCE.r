@@ -970,7 +970,7 @@ p <- Tcontpre[outcome %in% c("EuroQoL_index", "eq5d5l_6")][, `:=` (Om = Q1 - 1.5
   scale_y_continuous(limits = \(.x) c(ifelse(max(.x, na.rm = TRUE) > 1, 0, -0.5), 10^ceiling(log10(.x)))) +
   facet_grid(rows = vars(outcome), scales = "free") +
   labs(x = "Timepoint", y = "Mean score value", title = "Mean and 95% CI for EQ5D5L scales per group across waves") +
-  theme(legend.position = "top", axis.title.y = element_blank())
+  theme(legend.position = "top")
 
 
 ggdata <- na.omit(melt(eTlong[, .(EuroQoL_index, eq5d5l_6, time, Randomization_Group)], id.vars = c("time", "Randomization_Group")))
