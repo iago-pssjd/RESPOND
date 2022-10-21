@@ -182,7 +182,7 @@ Tlong[, phq9 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^phq9_0\\d")
       ][, ptsd := rowSums2(as.matrix(.SD)), .SDcols = patterns("^pcl5_\\d")
       ][, phq_ads := phq9 + gad7
       ][, passc := rowSums2(as.matrix(.SD)), .SDcols = patterns("passc_\\d+")
-      ][, ]
+      ][!is.na(eq5d5l_1) & !is.na(eq5d5l_2) & !is.na(eq5d5l_3) & !is.na(eq5d5l_5) & !is.na(eq5d5l_5), `:=` (EQ5D5Lds = interaction(eq5d5l_1, eq5d5l_2, eq5d5l_3, eq5d5l_4, eq5d5l_5, sep = ""), EuroQoL_index = 1 - MO[eq5d5l_1] - SC[eq5d5l_2] - UA[eq5d5l_3] - PD[eq5d5l_4] - AD[eq5d5l_5])]
 
 
 

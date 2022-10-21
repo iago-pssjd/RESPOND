@@ -2,22 +2,23 @@
 # from BcnMadCEdata_SR.r
 # to BcnMadCE.r
 
-# Data directory ----------------------------------------------------------
+# OS ddependencies ----------------------------------------------------------
 
 
 if(Sys.info()["sysname"] == "Linux"){
-	data_add <- paste0("/media/",
+	data_path <- paste0("/media/",
 			   system("whoami", intern = TRUE),
 			   "/",
 			   system(paste0("ls /media/",system("whoami", intern = TRUE)), intern = TRUE),
 			   "/PSSJD/RESPOND/data/source/")
-	data_add <- data_add[file.exists(data_add)]
+	data_path <- data_path[file.exists(data_path)]
+	dev_lib_path <- "~/R/x86_64-pc-linux-gnu-library/dev"
 } else if(Sys.info()["sysname"] == "Windows"){
-	data_add <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
-	data_add <- data_add[file.exists(data_add)]
-	data_add <- paste0(data_add, "/")
+	data_path <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
+	data_path <- data_path[file.exists(data_path)]
+	data_path <- paste0(data_path, "/")
+	dev_lib_path <- .libPaths()
 }
-
 
 
 # Libraries ---------------------------------------------------------------
@@ -25,19 +26,19 @@ if(Sys.info()["sysname"] == "Linux"){
 
 
 library(matrixStats)
-library(data.table)
+library(data.table, lib.loc = dev_lib_path)
 library(openxlsx)
 
 # Data loading --------------------------------------------------------------
 
 
-load(paste0(data_add, "../target/BcnMadCE/CEdataSR.rdata"))
-items <- fread(paste0(data_add, "BcnMadCE/survey_variablelist.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
-fields <- fread(paste0(data_add, "BcnMadCE/field_options.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
-pmMad <- fread(paste0(data_add, "BcnMadCE/MadData/pm_attendance.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
-pmBcn <- read.xlsx(paste0(data_add, "BcnMadCE/BcnData/Num sesiones PM.xlsx"))
-dwmMad <- fread(paste0(data_add, "BcnMadCE/MadData/Respond Aid Workers_user_activity_06-09-2022 12 14 46.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
-dwmBcn <- fread(paste0(data_add, "BcnMadCE/BcnData/Meta-data app_v2_BCN.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
+load(paste0(data_path, "../target/BcnMadCE/CEdataSR.rdata"))
+items <- fread(paste0(data_path, "BcnMadCE/survey_variablelist.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
+fields <- fread(paste0(data_path, "BcnMadCE/field_options.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
+pmMad <- fread(paste0(data_path, "BcnMadCE/MadData/pm_attendance.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
+pmBcn <- read.xlsx(paste0(data_path, "BcnMadCE/BcnData/Num sesiones PM.xlsx"))
+dwmMad <- fread(paste0(data_path, "BcnMadCE/MadData/Respond Aid Workers_user_activity_06-09-2022 12 14 46.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
+dwmBcn <- fread(paste0(data_path, "BcnMadCE/BcnData/Meta-data app_v2_BCN.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
 
 # Operations --------------------------------------------------------------
 
@@ -94,4 +95,4 @@ screening <- merge(screening, dwm, all = TRUE, by.x = "Record_Id", by.y = "resea
 eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
 
 
-save(Tdata, MTdata, Tlong, enTlong, screening, eTlong, file = paste0(data_add, "../target/BcnMadCE/CEdata2.rdata"))
+save(Tdata, MTdata, Tlong, enTlong, screening, eTlong, file = paste0(data_path, "../target/BcnMadCE/CEdata2.rdata"))

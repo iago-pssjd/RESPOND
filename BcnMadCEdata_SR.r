@@ -2,22 +2,23 @@
 # from BcnMadCEdata_wran.r
 # to BcnMadCEdata_wranfactors.r
 
-# Data directory ----------------------------------------------------------
+# OS ddependencies ----------------------------------------------------------
 
 
 if(Sys.info()["sysname"] == "Linux"){
-	data_add <- paste0("/media/",
+	data_path <- paste0("/media/",
 			   system("whoami", intern = TRUE),
 			   "/",
 			   system(paste0("ls /media/",system("whoami", intern = TRUE)), intern = TRUE),
 			   "/PSSJD/RESPOND/data/source/")
-	data_add <- data_add[file.exists(data_add)]
+	data_path <- data_path[file.exists(data_path)]
+	dev_lib_path <- "~/R/x86_64-pc-linux-gnu-library/dev"
 } else if(Sys.info()["sysname"] == "Windows"){
-	data_add <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
-	data_add <- data_add[file.exists(data_add)]
-	data_add <- paste0(data_add, "/")
+	data_path <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
+	data_path <- data_path[file.exists(data_path)]
+	data_path <- paste0(data_path, "/")
+	dev_lib_path <- .libPaths()
 }
-
 
 
 # Libraries ---------------------------------------------------------------
@@ -25,8 +26,7 @@ if(Sys.info()["sysname"] == "Linux"){
 
 
 library(matrixStats)
-library(data.table)
-
+library(data.table, lib.loc = dev_lib_path)
 
 
 
@@ -34,7 +34,7 @@ library(data.table)
 
 # Data loading --------------------------------------------------------------
 
-load(paste0(data_add, "../target/BcnMadCE/CEdata.rdata"))
+load(paste0(data_path, "../target/BcnMadCE/CEdata.rdata"))
 
 
 
@@ -153,4 +153,4 @@ invisible(lapply(SsE, \(.x) Tlong[, (paste0("SR_", .x)) := phq_ads - predict(nsr
 
 
 
-save(Tdata, MTdata, Tlong, enTlong, screening, eTlong, file = paste0(data_add, "../target/BcnMadCE/CEdataSR.rdata"))
+save(Tdata, MTdata, Tlong, enTlong, screening, eTlong, file = paste0(data_path, "../target/BcnMadCE/CEdataSR.rdata"))
