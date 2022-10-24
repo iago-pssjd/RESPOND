@@ -2086,10 +2086,51 @@ sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLO
 
 ```{r}
 
-
+cat("NO DATA")
 
 ```
 
+
+## NNT
+
+Number needed to treat $= \frac{1}{(P_C-P_I)}$, where $c=Control$, $i=Intervention$, and for each timepoint $t$ and outcome $Y$,
+$$
+P_i = P_i^{(t)} = {\frac{\# Y \geq 10}{\# i}}_{|i, t}
+$$
+$$
+P_c = P_c^{(t)} = {\frac{\# Y \geq 10}{\# c}}_{|c, t}
+$$
+Or also:
+$$
+NNT = \frac{1}{(1-P_i) - (1 - P_c)}
+$$
+Meanwhile,
+$$
+1-P_c = {\frac{\# Y < 10}{\#c}}_{|c,t}={\frac{\frac{\#Y<10}{\#Y\geq10}}{1 + \frac{\#Y<10}{\#Y\geq10}}}_{|c,t} = \frac{odds(\#Y<10)_{|c,t}}{1 + odds(\#Y<10)_{|c,t}}
+$$
+and idem
+$$
+1-P_i = {\frac{\# Y < 10}{\#i}}_{|i,t}={\frac{\frac{\#Y<10}{\#Y\geq10}}{1 + \frac{\#Y<10}{\#Y\geq10}}}_{|i,t} = \frac{odds(\#Y<10)_{|i,t}}{1 + odds(\#Y<10)_{|i,t}}
+$$
+
+Finally, the "estimated" odds are
+$$
+odds(\#Y<10)_{|c,t} \sim exp((Intercept) + Time[t])
+$$
+and
+$$
+odds(\#Y<10)_{|i,t} \sim exp((Intercept + Time[t] + Randomization\_Group[Intervention] + Time[t]:Randomization\_Group[Intervention]))
+$$
+
+```{r, results='asis'}
+
+kable(eTlong[, .(Pi = .SD[phq9 >= 10 & Randomization_Group == "Intervention", .N] / .SD[Randomization_Group == "Intervention", .N], Pc = .SD[phq9 >= 10 & Randomization_Group == "Control", .N] / .SD[Randomization_Group == "Control", .N]), by = .(time)][, NNT := 1/(Pc -Pi)][, lapply(.SD, formatC, digits = 2), .SDcols = is.numeric, by = .(time)], caption = "Crude NNT for PHQ-9") |> kableExtra::kable_styling()
+
+kable(eTlong[, .(Pi = .SD[gad7 >= 10 & Randomization_Group == "Intervention", .N] / .SD[Randomization_Group == "Intervention", .N], Pc = .SD[gad7 >= 10 & Randomization_Group == "Control", .N] / .SD[Randomization_Group == "Control", .N]), by = .(time)][, NNT := 1/(Pc -Pi)][, lapply(.SD, formatC, digits = 2), .SDcols = is.numeric, by = .(time)], caption = "Crude NNT for GAD-7") |> kableExtra::kable_styling()
+
+crudeFE <- fixef(crudemodels[[1]])[["cond"]]
+controlodds <- exp(crudeFE["(Intercept)"] + c(0, crudeFE[grep("^time", names(crudeFE), value = TRUE)]))
+```
 
 
 ## Cronbach’s alpha
