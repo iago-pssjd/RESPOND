@@ -14,8 +14,10 @@ output:
       smooth_scroll: yes
 editor_options: 
   chunk_output_type: console
+  markdown: 
+    wrap: 72
+bibliography: references.bib
 ---
-
 
 ```{r setup, include=FALSE}
 # BcnMadCE.r
@@ -135,7 +137,6 @@ plot.labels <- data.frame(names = main.outcomes, axis = c("PHQ-ADS", "PHQ-9", "G
 
 ```
 
-
 # Data collection
 
 ## Missing data
@@ -181,8 +182,6 @@ kable(sheetDT, caption = "Missingness by type of job")
 
 
 ```
-
-
 
 ```{r, fig.height=8}
 
@@ -258,9 +257,7 @@ kable(sheetDT, caption = "Retention rates")
 
 ```
 
-
 # Main Results
-
 
 ## Table 1
 
@@ -393,7 +390,6 @@ kable(sheetDT, caption = "Table 1. Characteristics of the participants")
 
 
 ```
-
 
 ## Table 2
 
@@ -534,7 +530,6 @@ kable(sheetDT, caption = "Table 2. Mental health outcomes by randomisation group
 
 ```
 
-
 ## Plots
 
 ```{r}
@@ -552,7 +547,6 @@ Tcontpre[outcome %in% intOutcomes[1:4]][, `:=` (Om = Q1 - 1.5*(Q3 - Q1), OM = Q3
 
 
 ```
-
 
 ```{r}
 
@@ -573,7 +567,6 @@ eTlong[wave == 2, .(Record_Id, k10_score, T0_K10_score, Randomization_Group)][, 
   theme(axis.text.y = element_blank(), legend.position = "bottom")
 
 ```
-
 
 ```{r tests, eval=FALSE}
 
@@ -654,9 +647,6 @@ eff_size(fit14RG, sigma = sigma(fit14), edf = min(summary(pairs(fit14RG))$df))
 
 ## Models (intention-to-treat)
 
-
-
-
 ```{r crude_ITT}
 
 
@@ -732,9 +722,6 @@ crudeST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, fo
 
 ```
 
-
-
-
 ```{r adjusted_ITT}
 
 ### Adjusted estimates (incl. baseline covariate) sensitivity analyses 
@@ -794,15 +781,11 @@ adjustedST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD,
 
 ```
 
-
-
-
 ```{r ITT_EMM_kable}
 
 kable(merge(crudeST, adjustedST, by = c("outcome", "time"), suffixes = c(" (crude)", " (adjusted)")), caption = "Estimated marginal means and 95 percent confidence intervals (ITT)")
 
 ```
-
 
 ```{r plot_test_emmip, eval=FALSE}
 
@@ -822,7 +805,6 @@ kable(merge(crudeST, adjustedST, by = c("outcome", "time"), suffixes = c(" (crud
 #   geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2)
 ```
 
-
 ```{r crude_ITT_EMM_plot}
 
 modelsRG <- crudeRG
@@ -831,8 +813,6 @@ wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='b
 
 ```
 
-
-
 ```{r adjusted_ITT_EMM_plot}
 
 modelsRG <- adjustedRG
@@ -840,9 +820,6 @@ plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmean
 wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
 
 ```
-
-
-
 
 ```{r crude_forestplot_ITT}
 
@@ -912,10 +889,6 @@ popViewport()
 
 ```
 
-
-
-
-
 ```{r adjusted_forestplot_ITT}
 
 esRG <- adjusted_esRG
@@ -984,9 +957,6 @@ popViewport()
 
 ```
 
-
-
-
 ```{r raw_ITT}
 
 crude_EMM[, `:=` (model = "crude", type = "EMM")]
@@ -998,8 +968,6 @@ adjusted_esRG[, `:=` (model = "adjusted", type = "PWES-EMM")]
 datatable(setcolorder(rbind(crude_EMM, adjusted_EMM, crude_PW, adjusted_PW, crude_esRG, adjusted_esRG)[, time := substr(time, 1, 2)], c("model", "type")), caption = "This table includes the raw data of the models (just in case something very specific needs to be checked)")
 
 ```
-
-
 
 ```{r non-adjusted-effect-sizes_ITT, eval=FALSE}
 
@@ -1038,13 +1006,9 @@ rm(wb)
 
 ```
 
-
 # Secondary analyses
 
 ## Pre-specified per-protocol analyses
-
-
-
 
 ```{r PPdata}
 
@@ -1061,8 +1025,6 @@ sheetDT <- eTlongPP[, unique(.SD[, .(Record_Id, Randomization_Group)])][, .N, by
 kable(sheetDT, caption = "Participants in PP analysis")
 
 ```
-
-
 
 ```{r crude_PP}
 
@@ -1122,9 +1084,6 @@ crudeST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, fo
 
 ```
 
-
-
-
 ```{r adjusted_PP}
 
 
@@ -1180,17 +1139,11 @@ adjustedST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD,
 
 ```
 
-
-
-
-
 ```{r PP_EMM_kable}
 
 kable(merge(crudeST, adjustedST, by = c("outcome", "time"), suffixes = c(" (crude)", " (adjusted)")), caption = "Estimated marginal means and 95 percent confidence intervals (PP)")
 
 ```
-
-
 
 ```{r crude_PP_EMM_plot}
 
@@ -1200,8 +1153,6 @@ wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='b
 
 ```
 
-
-
 ```{r adjusted_PP_EMM_plot}
 
 modelsRG <- adjustedRG
@@ -1209,10 +1160,6 @@ plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmean
 wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
 
 ```
-
-
-
-
 
 ```{r crude_forestplot_PP}
 
@@ -1282,10 +1229,6 @@ popViewport()
 
 ```
 
-
-
-
-
 ```{r adjusted_forestplot_PP}
 
 esRG <- adjusted_esRG
@@ -1354,9 +1297,6 @@ popViewport()
 
 ```
 
-
-
-
 ```{r raw_PP}
 
 crude_EMM[, `:=` (model = "crude", type = "EMM")]
@@ -1368,8 +1308,6 @@ adjusted_esRG[, `:=` (model = "adjusted", type = "PWES-EMM")]
 datatable(setcolorder(rbind(crude_EMM, adjusted_EMM, crude_PW, adjusted_PW, crude_esRG, adjusted_esRG)[, time := substr(time, 1, 2)], c("model", "type")), caption = "This table includes the raw data of the models (just in case something very specific needs to be checked)")
 
 ```
-
-
 
 ```{r non-adjusted-effect-sizes_PP, eval=FALSE}
 
@@ -1410,11 +1348,7 @@ sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLO
 
 ```
 
-
-
-
 ## Sensitivity analysis: distressed participants
-
 
 ```{r SSdata}
 
@@ -1429,10 +1363,6 @@ sheetDT <- unique(eTlongSS, by = c("Record_Id", "Randomization_Group"))[, .N, .(
 kable(sheetDT, caption = "Here, we include only the participants with moderate and severe baseline levels of anxiety/depression (as measured by the PHQ-ADS score).")
 
 ```
-
-
-
-
 
 ```{r crude_SS}
 
@@ -1492,9 +1422,6 @@ crudeST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, fo
 
 ```
 
-
-
-
 ```{r adjusted_SS}
 
 
@@ -1550,17 +1477,11 @@ adjustedST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD,
 
 ```
 
-
-
-
-
 ```{r SS_EMM_kable}
 
 kable(merge(crudeST, adjustedST, by = c("outcome", "time"), suffixes = c(" (crude)", " (adjusted)")), caption = "Estimated marginal means and 95 percent confidence intervals (SS)")
 
 ```
-
-
 
 ```{r crude_SS_EMM_plot}
 
@@ -1570,8 +1491,6 @@ wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='b
 
 ```
 
-
-
 ```{r adjusted_SS_EMM_plot}
 
 modelsRG <- adjustedRG
@@ -1579,10 +1498,6 @@ plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmean
 wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
 
 ```
-
-
-
-
 
 ```{r crude_forestplot_SS}
 
@@ -1652,10 +1567,6 @@ popViewport()
 
 ```
 
-
-
-
-
 ```{r adjusted_forestplot_SS}
 
 esRG <- adjusted_esRG
@@ -1724,9 +1635,6 @@ popViewport()
 
 ```
 
-
-
-
 ```{r raw_SS}
 
 crude_EMM[, `:=` (model = "crude", type = "EMM")]
@@ -1738,8 +1646,6 @@ adjusted_esRG[, `:=` (model = "adjusted", type = "PWES-EMM")]
 datatable(setcolorder(rbind(crude_EMM, adjusted_EMM, crude_PW, adjusted_PW, crude_esRG, adjusted_esRG)[, time := substr(time, 1, 2)], c("model", "type")), caption = "This table includes the raw data of the models (just in case something very specific needs to be checked)")
 
 ```
-
-
 
 ```{r non-adjusted-effect-sizes_SS, eval=FALSE}
 
@@ -1780,11 +1686,7 @@ sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLO
 
 ```
 
-
 ## Sensitivity: Binary outcomes
-
-
-
 
 ```{r crude_binary}
 
@@ -1817,7 +1719,6 @@ setcolorder(sheetDT, "Estimate", before = "2.5 %")
 
 ```
 
-
 ```{r adjusted_binary}
 
 ### Adjusted estimates (incl. baseline covariate) sensitivity analyses 
@@ -1830,14 +1731,11 @@ adjustedmodels <- models <- sapply(dich.outcomes, \(.x) glmmTMB(as.formula(paste
 
 ```
 
-
 ```{r}
 
 modelsummary(models = c(crudemodels, adjustedmodels)[c(1,3,2,4)], estimate = string_estimate, exponentiate = TRUE, statistic = NULL, gof_map = gm, fmt = list(estimate = mfm, conf.low = mfm, conf.high = mfm, rmse = 3, fmt = 2, ngrps = as.integer), stars = TRUE, notes = string_stars)
 
 ```
-
-
 
 ```{r, eval=FALSE}
 
@@ -2083,7 +1981,6 @@ sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLO
 
 ```
 
-
 ## Adherence to intervention protocols
 
 ```{r}
@@ -2092,18 +1989,20 @@ cat("NO DATA")
 
 ```
 
-
 ## NNT
 
-Number needed to treat $= \frac{1}{(P_C-P_I)}$, where $c=Control$, $i=Intervention$, and for each timepoint $t$ and outcome $Y$,
+Number needed to treat $= \frac{1}{(P_C-P_I)}$, where $c=Control$,
+$i=Intervention$, and for each timepoint $t$ and outcome $Y$, 
+
 $$
 P_i = P_i^{(t)} = {\frac{\# Y \geq 10}{\# i}}_{|i, t}
-$$
+$$ 
+
 $$
 P_c = P_c^{(t)} = {\frac{\# Y \geq 10}{\# c}}_{|c, t}
 $$
 
-Manual computation
+Manual computation:
 
 ```{r}
 
@@ -2112,7 +2011,6 @@ kable(na.omit(eTlong, cols = "phq9")[, .(Pi = .SD[phq9 >= 10 & Randomization_Gro
 kable(na.omit(eTlong, cols = "gad7")[, .(Pi = .SD[gad7 >= 10 & Randomization_Group == "Intervention", .N] / .SD[Randomization_Group == "Intervention", .N], Pc = .SD[gad7 >= 10 & Randomization_Group == "Control", .N] / .SD[Randomization_Group == "Control", .N]), by = .(time)][, NNT := 1/(Pc -Pi)][, lapply(.SD, formatC, digits = 4), .SDcols = is.numeric, by = .(time)], caption = "Crude NNT for GAD-7") |> kableExtra::kable_styling()
 
 ```
-
 
 <!--Using `ClinSigMeasures` package:-->
 
@@ -2143,42 +2041,66 @@ suppressWarnings(genodds(eTlong$gad7_anxiety, eTlong$Randomization_Group, eTlong
 
 ```
 
+Using Kraemer-Kupfer formula (Furukawa and Leucht, 2011), 
 
+$$
+NNT = \frac{1}{2\Phi\left(\frac{d}{\sqrt(2)}\right) - 1}
+$$ 
 
-Or also:
+we compute approximated NNTs from Cohen's d so it may be applied also
+to continuous outcomes:
+
+```{r}
+
+melt(eTlong[, unlist(lapply(main.outcomes, \(.x) structure(data.table(effectsize::cohens_d(reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group",.x)))$Cohens_d), names = .x)), recursive = FALSE),  by = .(time)], id.vars = "time", value.name = "d", variable.name = "outcome")[, KKNNT := 1 / (2 * pnorm(d/sqrt(2)) - 1)] |> 
+  kable(caption = "Kraemer-Kupfer approximation of NNT") |> 
+  kableExtra::kable_styling()
+
+```
+
+Let's remark NNT satisfies:
+
 $$
 NNT = \frac{1}{(1-P_i) - (1 - P_c)}
-$$
-Meanwhile,
+$$ 
+
+
+Meanwhile, 
+
 $$
 P_c^c := 1-P_c = {\frac{\# Y < 10}{\#c}}_{|c,t}={\frac{\frac{\#Y<10}{\#Y\geq10}}{1 + \frac{\#Y<10}{\#Y\geq10}}}_{|c,t} = \frac{odds(\#Y<10)_{|c,t}}{1 + odds(\#Y<10)_{|c,t}}
-$$
-and idem
+$$ 
+
+and idem 
+
 $$
 P_i^c := 1-P_i = {\frac{\# Y < 10}{\#i}}_{|i,t}={\frac{\frac{\#Y<10}{\#Y\geq10}}{1 + \frac{\#Y<10}{\#Y\geq10}}}_{|i,t} = \frac{odds(\#Y<10)_{|i,t}}{1 + odds(\#Y<10)_{|i,t}}
 $$
 
-Finally, the "estimated" odds for $t=1$ are
+Finally, the "estimated" odds for $t=1$ are 
 $$
 odds(\#Y<10)_{|c,1} \sim \exp\left((Intercept)\right)
-$$
+$$ 
 and
 
 $$
 odds(\#Y<10)_{|i,1} \sim \exp\left((Intercept) + Randomization\_Group[Intervention]\right)
 $$
 
-and for $t\neq1$ are
+and for $t\neq1$ are 
 $$
 odds(\#Y<10)_{|c,t} \sim \exp\left((Intercept) + Time[t]\right)
-$$
+$$ 
 and
 
 $$
 odds(\#Y<10)_{|i,t} \sim \exp\left((Intercept) + Time[t] + Randomization\_Group[Intervention] + Time[t]:Randomization\_Group[Intervention]\right)
 $$
 
-```{r}
+Therefore, we can compute estimated NNT from the binary outcome logistic
+mixed model:
+
+```{r, echo = TRUE}
 
 
 crudeFE <- lapply(crudemodels, fixef)
@@ -2187,22 +2109,26 @@ crudeFE <- lapply(crudeFE, getElement, name = "cond")
 controlodds <- mapply(`+`, lapply(crudeFE, getElement, name = "(Intercept)"), lapply(crudeFE, \(.x) c(0, sapply(grep("^time", names(.x)), \(.y) .x[[.y]]))), SIMPLIFY = FALSE)
 interventionodds <- mapply(`+`, lapply(crudeFE, getElement, name = "Randomization_GroupIntervention"), lapply(crudeFE, \(.x) c(0, sapply(grep("Intervention.*time", names(.x)), \(.y) .x[[.y]]))), SIMPLIFY = FALSE)
 interventionodds <- mapply(`+`, controlodds, interventionodds, SIMPLIFY = FALSE)
+
 controlodds <- lapply(controlodds, exp)
 interventionodds <- lapply(interventionodds, exp)
 
 cpc <- lapply(controlodds, \(.x) .x/(1+.x))
 cpi <- lapply(interventionodds, \(.x) .x/(1+.x))
+
+
 cpc <- melt(setDT(data.frame(time = unique(eTlong$time), cpc)), id.vars = "time", measure.vars = 2:3, variable.name = "outcome", value.name = "cpc")
 cpi <- melt(setDT(data.frame(time = unique(eTlong$time), cpi)), id.vars = "time", measure.vars = 2:3, variable.name = "outcome", value.name = "cpi")
+
+
 kable(merge(cpc, cpi, by = c("outcome", "time"))[, NNT := 1/(cpi - cpc)], caption = "Estimated NNT") |> kableExtra::kable_styling()
 
 ```
 
 
+And in the same way Kraemer-Kupfer formula may be applied to standardized effect sizes instead of Cohen's'd:
 
-
-
-## Cronbach’s alpha
+## Cronbach's alpha
 
 ```{r cronbach, results='markup'}
 
@@ -2265,4 +2191,3 @@ sheetDT
 # saveWorkbook(wb, paste0(data_path, "../target/BcnMadCE/results/report3.xlsx"), overwrite = TRUE)
 
 ```
-
