@@ -697,6 +697,8 @@ sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = i
 crude_PW <- conRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(confint(modelsRG[[.x]]$contrasts)))[, outcome := .x], "outcome")))
 sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
 
+crude_PW_ITT <- crude_PW
+
 # kable(sheetDT, caption = "EMM differences (ITT)")
 
 
@@ -2127,6 +2129,12 @@ kable(merge(cpc, cpi, by = c("outcome", "time"))[, NNT := 1/(cpi - cpc)], captio
 
 
 And in the same way Kraemer-Kupfer formula may be applied to standardized effect sizes instead of Cohen's'd:
+
+```{r}
+kable(crude_PW_ITT[, KKNNT := 1 / (2 * pnorm(estimate/sqrt(2)) - 1)], caption = "Estimated Kraemer-Kupfer approximation of NNT") |> 
+  kableExtra::kable_styling()
+```
+
 
 ## Cronbach's alpha
 
