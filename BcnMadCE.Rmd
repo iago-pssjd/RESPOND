@@ -44,6 +44,9 @@ if(Sys.info()["sysname"] == "Linux"){
 
 # Libraries
 
+# library(epiR)
+# library(ClinSigMeasures)
+library(genodds)
 library(DT)
 library(patchwork)
 library(grid)
@@ -1836,7 +1839,6 @@ modelsummary(models = c(crudemodels, adjustedmodels)[c(1,3,2,4)], estimate = str
 
 
 
-
 ```{r, eval=FALSE}
 
 
@@ -2100,37 +2102,104 @@ $$
 $$
 P_c = P_c^{(t)} = {\frac{\# Y \geq 10}{\# c}}_{|c, t}
 $$
+
+Manual computation
+
+```{r}
+
+kable(na.omit(eTlong, cols = "phq9")[, .(Pi = .SD[phq9 >= 10 & Randomization_Group == "Intervention", .N] / .SD[Randomization_Group == "Intervention", .N], Pc = .SD[phq9 >= 10 & Randomization_Group == "Control", .N] / .SD[Randomization_Group == "Control", .N]), by = .(time)][, NNT := 1/(Pc -Pi)][, lapply(.SD, formatC, digits = 4), .SDcols = is.numeric, by = .(time)], caption = "Crude NNT for PHQ-9") |> kableExtra::kable_styling()
+
+kable(na.omit(eTlong, cols = "gad7")[, .(Pi = .SD[gad7 >= 10 & Randomization_Group == "Intervention", .N] / .SD[Randomization_Group == "Intervention", .N], Pc = .SD[gad7 >= 10 & Randomization_Group == "Control", .N] / .SD[Randomization_Group == "Control", .N]), by = .(time)][, NNT := 1/(Pc -Pi)][, lapply(.SD, formatC, digits = 4), .SDcols = is.numeric, by = .(time)], caption = "Crude NNT for GAD-7") |> kableExtra::kable_styling()
+
+```
+
+
+<!--Using `ClinSigMeasures` package:-->
+
+```{r, results='markup', message=TRUE, eval=FALSE}
+
+cat("NNT for PHQ-9")
+
+eTlong[, .N, by = .(Randomization_Group, phq9_depression, wave)][order(wave,-Randomization_Group,phq9_depression)][!is.na(phq9_depression)] |> split(by = "wave") |> lapply(getElement, "N") |> lapply(structure, names = paste0("Cell",1:4)) |> lapply(as.list) |> lapply(do.call, what = nnt) |> invisible()
+
+
+cat("NNT for GAD-7")
+
+eTlong[, .N, by = .(Randomization_Group, gad7_anxiety, wave)][order(wave,-Randomization_Group,gad7_anxiety)][!is.na(gad7_anxiety)] |> split(by = "wave") |> lapply(getElement, "N") |> lapply(structure, names = paste0("Cell",1:4)) |> lapply(as.list) |> lapply(do.call, what = nnt) |> invisible()
+
+```
+
+Using `genodds` package:
+
+```{r, results='markup'}
+
+cat("NNT for PHQ-9")
+
+suppressWarnings(genodds(eTlong$phq9_depression, eTlong$Randomization_Group, eTlong$time, nnt = TRUE))
+
+cat("NNT for GAD-7")
+
+suppressWarnings(genodds(eTlong$gad7_anxiety, eTlong$Randomization_Group, eTlong$time, nnt = TRUE))
+
+```
+
+
+
 Or also:
 $$
 NNT = \frac{1}{(1-P_i) - (1 - P_c)}
 $$
 Meanwhile,
 $$
-1-P_c = {\frac{\# Y < 10}{\#c}}_{|c,t}={\frac{\frac{\#Y<10}{\#Y\geq10}}{1 + \frac{\#Y<10}{\#Y\geq10}}}_{|c,t} = \frac{odds(\#Y<10)_{|c,t}}{1 + odds(\#Y<10)_{|c,t}}
+P_c^c := 1-P_c = {\frac{\# Y < 10}{\#c}}_{|c,t}={\frac{\frac{\#Y<10}{\#Y\geq10}}{1 + \frac{\#Y<10}{\#Y\geq10}}}_{|c,t} = \frac{odds(\#Y<10)_{|c,t}}{1 + odds(\#Y<10)_{|c,t}}
 $$
 and idem
 $$
-1-P_i = {\frac{\# Y < 10}{\#i}}_{|i,t}={\frac{\frac{\#Y<10}{\#Y\geq10}}{1 + \frac{\#Y<10}{\#Y\geq10}}}_{|i,t} = \frac{odds(\#Y<10)_{|i,t}}{1 + odds(\#Y<10)_{|i,t}}
+P_i^c := 1-P_i = {\frac{\# Y < 10}{\#i}}_{|i,t}={\frac{\frac{\#Y<10}{\#Y\geq10}}{1 + \frac{\#Y<10}{\#Y\geq10}}}_{|i,t} = \frac{odds(\#Y<10)_{|i,t}}{1 + odds(\#Y<10)_{|i,t}}
 $$
 
-Finally, the "estimated" odds are
+Finally, the "estimated" odds for $t=1$ are
 $$
-odds(\#Y<10)_{|c,t} \sim exp((Intercept) + Time[t])
+odds(\#Y<10)_{|c,1} \sim \exp\left((Intercept)\right)
 $$
 and
+
 $$
-odds(\#Y<10)_{|i,t} \sim exp((Intercept + Time[t] + Randomization\_Group[Intervention] + Time[t]:Randomization\_Group[Intervention]))
+odds(\#Y<10)_{|i,1} \sim \exp\left((Intercept) + Randomization\_Group[Intervention]\right)
 $$
 
-```{r, results='asis'}
+and for $t\neq1$ are
+$$
+odds(\#Y<10)_{|c,t} \sim \exp\left((Intercept) + Time[t]\right)
+$$
+and
 
-kable(eTlong[, .(Pi = .SD[phq9 >= 10 & Randomization_Group == "Intervention", .N] / .SD[Randomization_Group == "Intervention", .N], Pc = .SD[phq9 >= 10 & Randomization_Group == "Control", .N] / .SD[Randomization_Group == "Control", .N]), by = .(time)][, NNT := 1/(Pc -Pi)][, lapply(.SD, formatC, digits = 2), .SDcols = is.numeric, by = .(time)], caption = "Crude NNT for PHQ-9") |> kableExtra::kable_styling()
+$$
+odds(\#Y<10)_{|i,t} \sim \exp\left((Intercept) + Time[t] + Randomization\_Group[Intervention] + Time[t]:Randomization\_Group[Intervention]\right)
+$$
 
-kable(eTlong[, .(Pi = .SD[gad7 >= 10 & Randomization_Group == "Intervention", .N] / .SD[Randomization_Group == "Intervention", .N], Pc = .SD[gad7 >= 10 & Randomization_Group == "Control", .N] / .SD[Randomization_Group == "Control", .N]), by = .(time)][, NNT := 1/(Pc -Pi)][, lapply(.SD, formatC, digits = 2), .SDcols = is.numeric, by = .(time)], caption = "Crude NNT for GAD-7") |> kableExtra::kable_styling()
+```{r}
 
-crudeFE <- fixef(crudemodels[[1]])[["cond"]]
-controlodds <- exp(crudeFE["(Intercept)"] + c(0, crudeFE[grep("^time", names(crudeFE), value = TRUE)]))
+
+crudeFE <- lapply(crudemodels, fixef)
+crudeFE <- lapply(crudeFE, getElement, name = "cond")
+
+controlodds <- mapply(`+`, lapply(crudeFE, getElement, name = "(Intercept)"), lapply(crudeFE, \(.x) c(0, sapply(grep("^time", names(.x)), \(.y) .x[[.y]]))), SIMPLIFY = FALSE)
+interventionodds <- mapply(`+`, lapply(crudeFE, getElement, name = "Randomization_GroupIntervention"), lapply(crudeFE, \(.x) c(0, sapply(grep("Intervention.*time", names(.x)), \(.y) .x[[.y]]))), SIMPLIFY = FALSE)
+interventionodds <- mapply(`+`, controlodds, interventionodds, SIMPLIFY = FALSE)
+controlodds <- lapply(controlodds, exp)
+interventionodds <- lapply(interventionodds, exp)
+
+cpc <- lapply(controlodds, \(.x) .x/(1+.x))
+cpi <- lapply(interventionodds, \(.x) .x/(1+.x))
+cpc <- melt(setDT(data.frame(time = unique(eTlong$time), cpc)), id.vars = "time", measure.vars = 2:3, variable.name = "outcome", value.name = "cpc")
+cpi <- melt(setDT(data.frame(time = unique(eTlong$time), cpi)), id.vars = "time", measure.vars = 2:3, variable.name = "outcome", value.name = "cpi")
+kable(merge(cpc, cpi, by = c("outcome", "time"))[, NNT := 1/(cpi - cpc)], caption = "Estimated NNT") |> kableExtra::kable_styling()
+
 ```
+
+
+
 
 
 ## Cronbach’s alpha
