@@ -14,9 +14,6 @@ output:
       smooth_scroll: yes
 editor_options: 
   chunk_output_type: console
-  markdown: 
-    wrap: 72
-bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -48,7 +45,7 @@ if(Sys.info()["sysname"] == "Linux"){
 
 # library(epiR)
 # library(ClinSigMeasures)
-library(genodds)
+# library(genodds)
 library(DT)
 library(patchwork)
 library(grid)
@@ -2008,9 +2005,11 @@ Manual computation:
 
 ```{r}
 
-kable(na.omit(eTlong, cols = "phq9")[, .(Pi = .SD[phq9 >= 10 & Randomization_Group == "Intervention", .N] / .SD[Randomization_Group == "Intervention", .N], Pc = .SD[phq9 >= 10 & Randomization_Group == "Control", .N] / .SD[Randomization_Group == "Control", .N]), by = .(time)][, NNT := 1/(Pc -Pi)][, lapply(.SD, formatC, digits = 4), .SDcols = is.numeric, by = .(time)], caption = "Crude NNT for PHQ-9") |> kableExtra::kable_styling()
+na.omit(eTlong, cols = "phq9")[, .(Pi = .SD[phq9 >= 10 & Randomization_Group == "Intervention", .N] / .SD[Randomization_Group == "Intervention", .N], Ni = .SD[Randomization_Group == "Intervention", .N], Pc = .SD[phq9 >= 10 & Randomization_Group == "Control", .N] / .SD[Randomization_Group == "Control", .N], Nc = .SD[Randomization_Group == "Control", .N]), by = .(time)][, `:=` (SED = sqrt(Pi*(1-Pi)/Ni + Pc*(1-Pc)/Nc), NNT = 1/(Pc - Pi))][, `:=` (NNT.lower = 1/((Pc-Pi) + qnorm((1+0.95)/2)*SED), NNT.upper = 1/((Pc-Pi) - qnorm((1+0.95)/2)*SED))][, lapply(.SD, formatC, digits = 4), .SDcols = is.numeric, by = .(time)] |> 
+  kable(caption = "Crude NNT for PHQ-9") |> kableExtra::kable_styling()
 
-kable(na.omit(eTlong, cols = "gad7")[, .(Pi = .SD[gad7 >= 10 & Randomization_Group == "Intervention", .N] / .SD[Randomization_Group == "Intervention", .N], Pc = .SD[gad7 >= 10 & Randomization_Group == "Control", .N] / .SD[Randomization_Group == "Control", .N]), by = .(time)][, NNT := 1/(Pc -Pi)][, lapply(.SD, formatC, digits = 4), .SDcols = is.numeric, by = .(time)], caption = "Crude NNT for GAD-7") |> kableExtra::kable_styling()
+na.omit(eTlong, cols = "gad7")[, .(Pi = .SD[gad7 >= 10 & Randomization_Group == "Intervention", .N] / .SD[Randomization_Group == "Intervention", .N], Ni = .SD[Randomization_Group == "Intervention", .N], Pc = .SD[gad7 >= 10 & Randomization_Group == "Control", .N] / .SD[Randomization_Group == "Control", .N], Nc = .SD[Randomization_Group == "Control", .N]), by = .(time)][, `:=` (SED = sqrt(Pi*(1-Pi)/Ni + Pc*(1-Pc)/Nc), NNT = 1/(Pc - Pi))][, `:=` (NNT.lower = 1/((Pc-Pi) + qnorm((1+0.95)/2)*SED), NNT.upper = 1/((Pc-Pi) - qnorm((1+0.95)/2)*SED))][, lapply(.SD, formatC, digits = 4), .SDcols = is.numeric, by = .(time)] |> 
+  kable(caption = "Crude NNT for GAD-7") |> kableExtra::kable_styling()
 
 ```
 
@@ -2029,9 +2028,9 @@ eTlong[, .N, by = .(Randomization_Group, gad7_anxiety, wave)][order(wave,-Random
 
 ```
 
-Using `genodds` package:
+<!--Using `genodds` package:-->
 
-```{r, results='markup'}
+```{r, results='markup', eval=FALSE}
 
 cat("NNT for PHQ-9")
 
