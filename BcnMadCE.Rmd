@@ -2101,7 +2101,7 @@ $$
 Therefore, we can compute estimated NNT from the binary outcome logistic
 mixed model:
 
-```{r, echo = TRUE}
+```{r}
 
 
 crudeFE <- lapply(crudemodels, fixef)
@@ -2198,3 +2198,9 @@ sheetDT
 # saveWorkbook(wb, paste0(data_path, "../target/BcnMadCE/results/report3.xlsx"), overwrite = TRUE)
 
 ```
+
+
+```{r, results='markup'}
+sessionInfo()
+```
+
