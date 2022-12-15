@@ -34,7 +34,7 @@ library(ggrepel)
 # library(car)
 # library(systemfit)
 # library(lmtest) # coefci
-library(emmeans, lib.loc = dev_lib_path)
+library(emmeans)
 # library(scdhlm)
 # library(sandwich) # https://sandwich.r-forge.r-project.org/articles/sandwich.html
 # library(merDeriv) # estfun.lmerMod, bread.lmerMod # https://stackoverflow.com/a/70268157/997979
