@@ -76,6 +76,10 @@ eTlong[, `:=` (age = year(Survey_Completed_On) - t0_soc_02,
 		 time = factor(wave, levels = 1:4, labels = c("T1. Baseline", "T2. Week 7 (post DWM)", "T3. Week 13 (post PM+)", "T4. Week 21 (follow-up)"))), 
        by = .(Record_Id)]
 
+fwrite(eTlong, file = paste0(data_path, "../target/BcnMadCE/CEdata.csv"))
+
+
+
 wb <- createWorkbook() 
 
 
@@ -987,3 +991,9 @@ q <- ggplot(ggdata, aes(x = time, y = value, colour = Randomization_Group)) +
 ggsave(paste0(data_path, "../../BcnMadDOCS/EQ5D5LmperTIMEandGROUP.png"), p, width = 20, height = 35, units = "cm")
 ggsave(paste0(data_path, "../../BcnMadDOCS/EQ5D5LbperTIMEandGROUP.png"), q, width = 20, height = 35, units = "cm")
   
+
+# QC 2x2 ------------------------------------------------------------------
+
+t1 <- dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_1, wave)], Record_Id ~ wave, value.var = "covid19_1")[, table(`1`, `2`, useNA = "always")] |> addmargins()
+t2 <- dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_1, wave)], Record_Id ~ wave, value.var = "covid19_1")[, table(`2`, `3`, useNA = "always")] |> addmargins()
+t3 <- dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_1, wave)], Record_Id ~ wave, value.var = "covid19_1")[, table(`3`, `4`, useNA = "always")] |> addmargins()
