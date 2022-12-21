@@ -62,6 +62,11 @@ eTlong[, `:=` (age = year(Survey_Completed_On) - t0_soc_02,
        by = .(Record_Id)]
 
 useNApar <- "no"
+
+eTlong0 <- unique(eTlong[Institute_Abbreviation == "SJD", .(Record_Id)])
+cols <- paste0("wave", 1:4)
+
+
 ```
 
 
@@ -75,6 +80,14 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_1, wave)], Re
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_1, wave)], Record_Id ~ wave, value.var = "covid19_1")[, table(T2 = `2`, T3 = `3`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "covid19_1 T2 vs T3", split.tables = Inf)
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_1, wave)], Record_Id ~ wave, value.var = "covid19_1")[, table(T3 = `3`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "covid19_1 T3 vs T4", split.tables = Inf)
 
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_1, wave)], Record_Id ~ paste0("wave",wave), value.var = "covid19_1")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (covid19_1_T1vsT2 = interaction(wave1, wave2, sep = "-"),
+                                                                                                                                                                   covid19_1_T2vsT3 = interaction(wave2, wave3, sep = "-"),
+                                                                                                                                                                   covid19_1_T3vsT4 = interaction(wave3, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
 ```
 
 # `covid19_01_1`
@@ -84,6 +97,14 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_1, wave)], Re
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_01_1, wave)], Record_Id ~ wave, value.var = "covid19_01_1")[, table(T1 = `1`, T2 = `2`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "covid19_01_1 T1 vs T2", split.tables = Inf)
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_01_1, wave)], Record_Id ~ wave, value.var = "covid19_01_1")[, table(T2 = `2`, T3 = `3`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "covid19_01_1 T2 vs T3", split.tables = Inf)
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_01_1, wave)], Record_Id ~ wave, value.var = "covid19_01_1")[, table(T3 = `3`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "covid19_01_1 T3 vs T4", split.tables = Inf)
+
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_01_1, wave)], Record_Id ~ paste0("wave",wave), value.var = "covid19_01_1")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (covid19_01_1_T1vsT2 = interaction(wave1, wave2, sep = "-"),
+                                                                                                                                                                   covid19_01_1_T2vsT3 = interaction(wave2, wave3, sep = "-"),
+                                                                                                                                                                   covid19_01_1_T3vsT4 = interaction(wave3, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
 
 ```
 
@@ -95,6 +116,16 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_4, wave)], Re
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_4, wave)], Record_Id ~ wave, value.var = "covid19_4")[, table(T2 = `2`, T3 = `3`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "covid19_4 T2 vs T3", split.tables = Inf)
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_4, wave)], Record_Id ~ wave, value.var = "covid19_4")[, table(T3 = `3`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "covid19_4 T3 vs T4", split.tables = Inf)
 
+
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_4, wave)], Record_Id ~ paste0("wave",wave), value.var = "covid19_4")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (covid19_4_T1vsT2 = interaction(wave1, wave2, sep = "-"),
+                                                                                                                                                                   covid19_4_T2vsT3 = interaction(wave2, wave3, sep = "-"),
+                                                                                                                                                                   covid19_4_T3vsT4 = interaction(wave3, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
+
 ```
 
 # `le_1`
@@ -104,6 +135,15 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, covid19_4, wave)], Re
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, le_1, wave)], Record_Id ~ wave, value.var = "le_1")[, table(T1 = `1`, T2 = `2`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "le_1 T1 vs T2", split.tables = Inf)
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, le_1, wave)], Record_Id ~ wave, value.var = "le_1")[, table(T2 = `2`, T3 = `3`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "le_1 T2 vs T3", split.tables = Inf)
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, le_1, wave)], Record_Id ~ wave, value.var = "le_1")[, table(T3 = `3`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "le_1 T3 vs T4", split.tables = Inf)
+
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, le_1, wave)], Record_Id ~ paste0("wave",wave), value.var = "le_1")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (le_1_T1vsT2 = interaction(wave1, wave2, sep = "-"),
+                                                                                                                                                                   le_1_T2vsT3 = interaction(wave2, wave3, sep = "-"),
+                                                                                                                                                                   le_1_T3vsT4 = interaction(wave3, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
 
 ```
 
@@ -115,6 +155,15 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, le_2, wave)], Record_
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, le_2, wave)], Record_Id ~ wave, value.var = "le_2")[, table(T2 = `2`, T3 = `3`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "le_2 T2 vs T3", split.tables = Inf)
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, le_2, wave)], Record_Id ~ wave, value.var = "le_2")[, table(T3 = `3`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "le_2 T3 vs T4", split.tables = Inf)
 
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, le_2, wave)], Record_Id ~ paste0("wave",wave), value.var = "le_2")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (le_2_T1vsT2 = interaction(wave1, wave2, sep = "-"),
+                                                                                                                                                                   le_2_T2vsT3 = interaction(wave2, wave3, sep = "-"),
+                                                                                                                                                                   le_2_T3vsT4 = interaction(wave3, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
+
 ```
 
 # `le_3`
@@ -125,6 +174,15 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, le_3, wave)], Record_
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, le_3, wave)], Record_Id ~ wave, value.var = "le_3")[, table(T2 = `2`, T3 = `3`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "le_3 T2 vs T3", split.tables = Inf)
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, le_3, wave)], Record_Id ~ wave, value.var = "le_3")[, table(T3 = `3`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "le_3 T3 vs T4", split.tables = Inf)
 
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, le_3, wave)], Record_Id ~ paste0("wave",wave), value.var = "le_3")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (le_3_T1vsT2 = interaction(wave1, wave2, sep = "-"),
+                                                                                                                                                                   le_3_T2vsT3 = interaction(wave2, wave3, sep = "-"),
+                                                                                                                                                                   le_3_T3vsT4 = interaction(wave3, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
+
 ```
 
 # `btq_01`
@@ -132,6 +190,14 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, le_3, wave)], Record_
 ```{r}
 
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_01, wave)], Record_Id ~ wave, value.var = "btq_01")[, table(T1 = `1`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "btq_01 T1 vs T4", split.tables = Inf)
+
+
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_01, wave)], Record_Id ~ paste0("wave",wave), value.var = "btq_01")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (btq_01_T1vsT4 = interaction(wave1, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
 
 ```
 
@@ -143,6 +209,15 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_01, wave)], Recor
 
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_02, wave)], Record_Id ~ wave, value.var = "btq_02")[, table(T1 = `1`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "btq_02 T1 vs T4", split.tables = Inf)
 
+
+
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_02, wave)], Record_Id ~ paste0("wave",wave), value.var = "btq_02")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (btq_02_T1vsT4 = interaction(wave1, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
+
 ```
 
 
@@ -152,6 +227,15 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_02, wave)], Recor
 ```{r}
 
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_03, wave)], Record_Id ~ wave, value.var = "btq_03")[, table(T1 = `1`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "btq_03 T1 vs T4", split.tables = Inf)
+
+
+
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_03, wave)], Record_Id ~ paste0("wave",wave), value.var = "btq_03")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (btq_03_T1vsT4 = interaction(wave1, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
 
 ```
 
@@ -163,6 +247,15 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_03, wave)], Recor
 
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_04, wave)], Record_Id ~ wave, value.var = "btq_04")[, table(T1 = `1`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "btq_04 T1 vs T4", split.tables = Inf)
 
+
+
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_04, wave)], Record_Id ~ paste0("wave",wave), value.var = "btq_04")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (btq_04_T1vsT4 = interaction(wave1, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
+
 ```
 
 
@@ -172,6 +265,15 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_04, wave)], Recor
 ```{r}
 
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_05, wave)], Record_Id ~ wave, value.var = "btq_05")[, table(T1 = `1`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "btq_05 T1 vs T4", split.tables = Inf)
+
+
+
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_05, wave)], Record_Id ~ paste0("wave",wave), value.var = "btq_05")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (btq_05_T1vsT4 = interaction(wave1, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
 
 ```
 
@@ -183,6 +285,15 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_05, wave)], Recor
 
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_06, wave)], Record_Id ~ wave, value.var = "btq_06")[, table(T1 = `1`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "btq_06 T1 vs T4", split.tables = Inf)
 
+
+
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_06, wave)], Record_Id ~ paste0("wave",wave), value.var = "btq_06")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (btq_06_T1vsT4 = interaction(wave1, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
+
 ```
 
 
@@ -192,6 +303,15 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_06, wave)], Recor
 ```{r}
 
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_07, wave)], Record_Id ~ wave, value.var = "btq_07")[, table(T1 = `1`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "btq_07 T1 vs T4", split.tables = Inf)
+
+
+
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_07, wave)], Record_Id ~ paste0("wave",wave), value.var = "btq_07")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (btq_07_T1vsT4 = interaction(wave1, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
 
 ```
 
@@ -203,6 +323,15 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_07, wave)], Recor
 
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_08, wave)], Record_Id ~ wave, value.var = "btq_08")[, table(T1 = `1`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "btq_08 T1 vs T4", split.tables = Inf)
 
+
+
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_08, wave)], Record_Id ~ paste0("wave",wave), value.var = "btq_08")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (btq_08_T1vsT4 = interaction(wave1, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
+
 ```
 
 
@@ -212,6 +341,15 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_08, wave)], Recor
 ```{r}
 
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_09, wave)], Record_Id ~ wave, value.var = "btq_09")[, table(T1 = `1`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "btq_09 T1 vs T4", split.tables = Inf)
+
+
+
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_09, wave)], Record_Id ~ paste0("wave",wave), value.var = "btq_09")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (btq_09_T1vsT4 = interaction(wave1, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
 
 ```
 
@@ -223,7 +361,22 @@ dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_09, wave)], Recor
 
 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_10, wave)], Record_Id ~ wave, value.var = "btq_10")[, table(T1 = `1`, T4 = `4`, useNA = useNApar)] |> addmargins() |> ftable() |> pander(caption = "btq_10 T1 vs T4", split.tables = Inf)
 
+
+
+eTlong0 <- merge(eTlong0,
+                 dcast(eTlong[Institute_Abbreviation == "SJD", .(Record_Id, btq_10, wave)], Record_Id ~ paste0("wave",wave), value.var = "btq_10")[, (cols) := lapply(.SD, \(.x) substr(.x, 1, pmin(nchar(as.character(.x)), 20))), .SDcols = patterns("wave")
+                                                                                                                                                         ][, `:=` (btq_10_T1vsT4 = interaction(wave1, wave4, sep = "-"))][, .SD, .SDcols = !patterns("wave")],
+                 by = "Record_Id")
+
+
+
 ```
 
 
+
+```{r}
+
+fwrite(eTlong0, file = paste0(data_path, "../target/BcnMadCE/QC.csv"))
+
+```
 
