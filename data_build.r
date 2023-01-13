@@ -180,3 +180,14 @@ fwrite(dbl, file = paste0(data_add, "../target/MINDCOVID2.csv"))
 # dbl[!is.na(date) & weekno == -93] |> print(topn=20, col.names = "top")
 # udbl <- unique(dbl[order(BASELINE_Respondent_Serial),.(BASELINE_Respondent_Serial, id)])
 # lapply(cols,\(.x) table(dbl[[.x]], useNA = "always"))
+
+
+dbl2 <- read_dta(paste0(data_add, "../target/BBDD_QUALITY.dta"))
+dbl2 <- dbl2 |>
+  zap_label() |>
+  zap_labels() |>
+  zap_formats()
+
+setDT(dbl2)
+intcols <- c("id", "wave", "year", "weekno")
+dbl2[, (intcols) := lapply(.SD, as.integer), .SDcols = intcols][, ]
