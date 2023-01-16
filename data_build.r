@@ -189,5 +189,9 @@ dbl2 <- dbl2 |>
   zap_formats()
 
 setDT(dbl2)
-intcols <- c("id", "wave", "year", "weekno")
-dbl2[, (intcols) := lapply(.SD, as.integer), .SDcols = intcols][, ]
+intcols <- setdiff(names(dbl2[, .SD, .SDcols = !populationvaccinated:economicsupportindex_fordisplay]), c("v2b_vaccineageeligibilityavailab", "v2c_vaccineageeligibilityavailab", "majorityvaccinated"))
+dbl2[, (intcols) := lapply(.SD, as.integer), .SDcols = intcols]
+mindcovid <- as_tibble(dbl2)
+saveRDS(mindcovid[mindcovid$wave == 1,], file = paste0(data_add, "../target/MINDCOVID_w1.rds"))
+saveRDS(mindcovid[mindcovid$wave == 2,], file = paste0(data_add, "../target/MINDCOVID_w2.rds"))
+saveRDS(mindcovid[mindcovid$wave == 3,], file = paste0(data_add, "../target/MINDCOVID_w3.rds"))
