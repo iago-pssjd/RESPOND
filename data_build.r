@@ -11,7 +11,7 @@ if(Sys.info()["sysname"] == "Linux"){
   data_add <- paste0(data_add, "/")
 }
 
-# Load libraries -----------------------------------------------------------
+#R! Load libraries
 library(tibble)
 library(bit64)
 library(forcats)
@@ -21,7 +21,7 @@ library(data.table) # under version at least 1.14.3
 library(openxlsx)
 
 
-# Load datasets -----------------------------------------------------------
+#R! Load datasets
 
 
 db <- read_dta(paste0(data_add, "BBDD_FINAL.dta"))
@@ -32,10 +32,10 @@ stringency <- fread(paste0(data_add, "stringency.csv"), na.strings = c("NA", "")
 conversion <- read.xlsx(paste0(data_add, "conversió codis CCAA.xlsx"), cols = c(2,3))
 
 
-# Arrange datasets --------------------------------------------------------
+#R! Arrange datasets
 
 
-## mobility ----------------------------------------------------------------
+#R!! mobility
 
 mobility20 <- mobility20[!is.na(sub_region_1) & is.na(sub_region_2), !c("metro_area", "census_fips_code")]
 mobility21 <- mobility21[!is.na(sub_region_1) & is.na(sub_region_2), !c("metro_area", "census_fips_code")]
@@ -47,7 +47,7 @@ mobility <- mobility[, !c("country_region_code", "country_region", "sub_region_2
                      ][, date := as.character(date)]
 
 
-## stringency --------------------------------------------------------------
+#R!! stringency
 
 stringency <- stringency[CountryName == "Spain"
                          ][, Date := as.character(as.IDate(anydate(Date)))
@@ -56,7 +56,7 @@ stringency <- stringency[CountryName == "Spain"
 
 
 
-## conversion --------------------------------------------------------------
+#R!! conversion
 
 
 setDT(conversion)
@@ -69,7 +69,7 @@ conversion[, `:=` (CCAA = paste(factor(CCAA, seq_along(levs), levs)))]
 
 
 
-# main db -----------------------------------------------------------------
+#R! main db
 
 setDT(db)
 
@@ -79,13 +79,13 @@ db <- db |>
   zap_labels() |>
   zap_formats()
 
-## merge conversion with db --------------------------------------------
+#R!! merge conversion with db
 
 
 db <- conversion[db, on = .(CODI.VARIABLE.RESIDENCE_W1 == residence_w1)]
 setnames(db, old = c("CODI.VARIABLE.RESIDENCE_W1"), new = c("residence_w1"))
 
-## Build date --------------------------------------------------------------
+#R!! Build date
 
 set.seed(as.integer64(paste0(sapply(strsplit("MINDCOVID", "")[[1]], match, table = LETTERS), collapse = "")))
 db[, `:=` (id = sample.int(nrow(db)),
@@ -117,7 +117,7 @@ db <- db[, !c("BASELINE_CurrentMonth", "BASELINE_CurrentDay",
 #   Reduce(f=union) |> length()
 
 
-## Reshape wide to long ----------------------------------------------------
+#R!! Reshape wide to long
 
 
 dbl <- melt(db, 
@@ -128,17 +128,17 @@ dbl[, weekno := fifelse(date == "2021-11-27", 47, weekno)]
 
 
 
-## merge mobility with dbl ----------------------------------------------------------
+#R!! merge mobility with dbl
 
 dbl <- mobility[dbl, on = .(sub_region_1 == CCAA, date)]
 
-## merge stringency with dbl ----------------------------------------------------------
+#R!! merge stringency with dbl
 
 dbl <- stringency[dbl, on = .(Date == date)]
 setnames(dbl, old = c("Date"), new = c("date"))
 
 
-## other -------------------------------------------------------------------
+#R!! other
 
 
 
