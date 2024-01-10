@@ -333,9 +333,9 @@ eT2s <- eTlong[, unlist(lapply(.SD, \(.x) {
 Tcontpre <- melt(eT2s, measure.vars = measure(outcome, value.name, pattern = "(^.*)\\.([a-zA-Z0-9]*)"))
 Tcont <- Tcontpre[, !c("time")]
 
-cols <- c("mean", "lower", "upper")
+cols <- c("lower", "upper")
 Tcont[, (cols) := lapply(.SD, \(.x) formatC(.x, digits = 1, format = "f")), .SDcols = cols]
-cols <- c("median", "Q1", "Q3", "sd")
+cols <- c("mean", "median", "Q1", "Q3", "sd")
 Tcont[, (cols) := lapply(.SD, \(.x) formatC(.x, digits = 2, format = "f")), .SDcols = cols]
 
 Tcont[, `:=` (`mean (sd) [CI]` = paste0(mean, " (", sd,") [", lower, ",", upper, "]"),
@@ -366,7 +366,7 @@ eT2l <- rbindlist(lapply(catOutcomes, \(.x){
 				     }))
 setcolorder(eT2l, "outcome")
 eT2l[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome, wave, Randomization_Group)
-     ][, Np := paste0(N, " (", formatC(p, digits = 0, format = "f"), "%)")]
+     ][, Np := paste0(N, " (", formatC(p, digits = 1, format = "f"), "%)")]
 setorder(eT2l, outcome, Randomization_Group, wave, measure)
 Tcat <- dcast(eT2l, outcome + measure ~ wave + Randomization_Group, value.var = c("Np"), fill = "0 (0.00%)")
 cols <- grep("outcome|measure", names(Tcat), invert = TRUE, value = TRUE)
