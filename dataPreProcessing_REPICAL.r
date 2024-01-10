@@ -69,6 +69,19 @@ metadata <- merge(na.omit(items, cols = c("var", "Optiongroup name")), fields, a
 metadata <- metadata[, .(var, `Option name`, `Option value`)]
 setnames(metadata, \(.x) sub("Option ", "", .x))
 
+
+metadata[.(var = metadata[grep("e[gch]_", var), unique(var)], to = paste0("e_", 1:15)), on = "var", var := i.to]
+metadata[.(var = rep("t0_soc_01", 6), value = c(1L,2L,5L,6L,3L,4L), to = 1:6), on = c("var", "value"), value := i.to]
+metadata[.(var = rep("t1_soc_1", 5), value = c(0L, 1L, 4L, 5L, 6L), to = 1:5), on = c("var", "value"), value := i.to]
+metadata[.(var = c("sbs_1", "covid19_4", "t0_soc_18", paste0("btq_", formatC(1:10, flag = "0", width = 2))), value = 0L, to = 2L), on = c("var", "value"), value := i.to]
+
+metadata <- rbind(metadata[!var %in% c("t0_soc_16", "t0_soc_17")], 
+		  data.table(var = c(rep("Randomization_Group", 2), rep("t0_soc_16", 10), rep("t0_soc_17", 3)), 
+			     name = c("Intervention", "Control",
+				      "Enfermero/a", "Técnico/a de cuidados auxiliares", "Gerocultor/a", "Fisioterapeuta", "Psicólogo/a", "Médico/a", "Trabajador/a social", "Administración", "Dirección", "Otro",
+				      "Residencia", "Centro sociosanitario", "A domicilio"), 
+			     value = c(1:2, 1:10, 1L, 2L, 6L)))
+
 #R! REPICAL data loading
 
 
@@ -78,7 +91,7 @@ setDT(dataW)
 #R! Pre-processing
 
 
-#R!! Fix dataset
+#R!! Fix dataset names
 
 setnames(dataW, old = c("t2_phq9_item10", "t3_phq_item10", "t4_phq9_item10", paste0("t1_covid19_0", 1:4), "SJD_ID", "Grupo", "K10_tot2"), new = c(paste0(paste0("t", 2:4), "_phq9_10"), paste0("t1_covid19_", 1:4), "Record_ID", "Randomization_Group", "t2_k10_score"))
 #1 = Intervention
@@ -93,7 +106,7 @@ setnames(dataL, \(.x) sub("^t1_(t[01])", "\\1", .x))
 
 
 
-write_xlsx(dataL[order(wave, Record_ID)], paste0(data_add, "../target/REPICAL/BBDDRepical_long.xlsx"), na.strings = "")
+#write_xlsx(dataL[order(wave, Record_ID)], paste0(data_add, "../target/REPICAL/BBDDRepical_long.xlsx"), na.strings = "")
 
 
 setnames(dataL, \(.x) gsub("^(btq|phq9|pass|k10)_([123456789])$", "\\1_0\\2", .x))
@@ -106,7 +119,7 @@ cols <- c("Randomization_Group")
 dataL[, (cols) := lapply(.SD, factor), .SDcols = cols]
 
 
-write_xlsx(dataL[order(wave, Record_ID)], paste0(data_add, "../target/REPICAL/BBDDRepical_long_modifiedNames.xlsx"), na.strings = "")
+#write_xlsx(dataL[order(wave, Record_ID)], paste0(data_add, "../target/REPICAL/BBDDRepical_long_modifiedNames.xlsx"), na.strings = "")
 
 
 
@@ -121,6 +134,12 @@ write_xlsx(dataL[order(wave, Record_ID)], paste0(data_add, "../target/REPICAL/BB
 #t0_soc_02 = year of birth
 #t0_soc_01 = gender
 
+#R!! Processing variables
+
+
+m1cols <- grep("(?i)^(((gad7|e|le|pcl5|phq9)_\\d+)|covid19_[123]|t0_soc_12|t1_soc_2|covid19_01_1)$|m_T1_CSRI", names(dataL), value = TRUE)
+
+dataL[, c(m1cols) := lapply(.SD, \(.x) .x - 1L), .SDcols = m1cols]
 
 #R!! Data outcomes
 
@@ -135,7 +154,6 @@ dataL[, phq9 := rowSums2(as.matrix(.SD)), .SDcols = patterns("^phq9_0\\d")
 
 
 metadata <- metadata[var %in% names(dataL)]
-metadata <- rbind(metadata, data.table(var = rep("Randomization_Group", 2), name = c("Intervention", "Control"), value = 1:2))
 
 
 val2name <- split(metadata, by = "var", keep.by = FALSE)
