@@ -40,6 +40,7 @@ if(Sys.info()["sysname"] == "Linux"){
 
 # Libraries
 
+library(tableone)
 library(DT)
 library(patchwork)
 library(grid)
@@ -195,7 +196,7 @@ kable(sheetDT, caption = "Retention rates")
 
 ## Table 1
 
-```{r}
+```{r, eval = FALSE}
 
 
 
@@ -258,14 +259,23 @@ eT1l <- dcast(rbind(eT1lF,eT1lG)[, Randomization_Group := factor(Randomization_G
 
 
 sheetDT <- characteristics <- rbind(Npw, eT1s, eT1l)
-fwrite(characteristics, file = paste0(data_path, "../target/BcnMadCE/results/characteristicsT1.csv"))
+fwrite(characteristics, file = paste0(data_path, "../target/REPICAL/characteristicsT1.csv"))
 
 # addWorksheet(wb, sheetName = "Table 1")
 # writeData(wb, sheet = "Table 1", sheetDT)
 kable(sheetDT, caption = "Table 1. Characteristics of the participants")
 
 
+
+
 ```
+
+```{r}
+
+CreateTableOne(vars = c("age", paste0("t0_soc_", c(formatC(c(1,12,16,17,18), flag = "0", width = 2), "covid19"))), strata = "Randomization_Group", data = eTlong[wave == 1], addOverall = TRUE, test = FALSE) |> kableone(showAllLevels = TRUE)
+
+```
+
 
 ## Table 2
 
@@ -285,7 +295,7 @@ catOutcomes <- c(c2dOutcomes, grep("^(m_T1_CSRI_SP|btq_\\d+$|covid19_)|(?i)^eq5d
 
 
 eT2s <- eTlong[, unlist(lapply(.SD, \(.x) {
-				     stpv <- tryCatch(shapiro.test(.x), error = function(e) ifelse(grepl("all 'x' values are identical", e), list(p.value = 1), e))$p.value
+				     stpv <- tryCatch(shapiro.test(.x), error = function(e) ifelse(grepl("all 'x' values are identical", e), list(p.value = 1), list(p.value = NA_real_)))$p.value
 				     .x <- as.numeric(.x)
 				     list(stpv0 = stpv,
 					  stpv = fifelse(stpv < 0.05, 
