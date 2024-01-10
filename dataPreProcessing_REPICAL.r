@@ -26,7 +26,7 @@ if(Sys.info()["sysname"] == "Linux"){
 library(matrixStats)
 library(data.table)
 library(openxlsx2)
-
+library(anytime)
 
 #R! Global data
 
@@ -109,14 +109,14 @@ setnames(dataL, \(.x) sub("^t1_(t[01])", "\\1", .x))
 #write_xlsx(dataL[order(wave, Record_ID)], paste0(data_add, "../target/REPICAL/BBDDRepical_long.xlsx"), na.strings = "")
 
 
-setnames(dataL, \(.x) gsub("^(btq|phq9|pass|k10)_([123456789])$", "\\1_0\\2", .x))
+setnames(dataL, \(.x) gsub("^(btq|phq9|passc|k10)_([123456789])$", "\\1_0\\2", .x))
 setnames(dataL, \(.x) gsub("^csri_(.*)$", "csri_sp_\\1", .x))
 setnames(dataL, \(.x) gsub("^m_CSRI_(.*)$", "m_T1_CSRI_SP_\\1", .x))
 
 
 
-cols <- c("Randomization_Group")
-dataL[, (cols) := lapply(.SD, factor), .SDcols = cols]
+#cols <- c("Randomization_Group")
+#dataL[, (cols) := lapply(.SD, factor), .SDcols = cols]
 
 
 #write_xlsx(dataL[order(wave, Record_ID)], paste0(data_add, "../target/REPICAL/BBDDRepical_long_modifiedNames.xlsx"), na.strings = "")
@@ -140,6 +140,10 @@ dataL[, (cols) := lapply(.SD, factor), .SDcols = cols]
 m1cols <- grep("(?i)^(((gad7|e|le|pcl5|phq9)_\\d+)|covid19_[123]|t0_soc_12|t1_soc_2|covid19_01_1)$|m_T1_CSRI", names(dataL), value = TRUE)
 
 dataL[, c(m1cols) := lapply(.SD, \(.x) .x - 1L), .SDcols = m1cols]
+
+ddFormats <- c("%d/%m/%Y", "%d-%m-%Y", "%d %m %Y", "%d.%m.%Y")
+addFormats(ddFormats)
+dataL[, t0_soc_02 := anydate(t0_soc_02)]
 
 #R!! Data outcomes
 

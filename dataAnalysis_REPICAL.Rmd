@@ -1,0 +1,2545 @@
+---
+title: "RESPOND WP4 - Preliminary trial results"
+subtitle: "RCT Primary Analysis"
+author: "Iago Giné-Vázquez"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    highlight: tango
+    theme: united
+    toc: yes
+    toc_depth: 6
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+# BcnMadCE.r
+# from BcnMadCEdata_wranfactors.r
+
+knitr::opts_chunk$set(echo = FALSE, results = 'asis', 
+                      fig.height = 10, fig.width = 10,
+                      eval = TRUE, message = FALSE, warning = FALSE)
+# OS ddependencies
+
+if(Sys.info()["sysname"] == "Linux"){
+	data_path <- paste0("/media/",
+			   system("whoami", intern = TRUE),
+			   "/",
+			   system(paste0("ls /media/",system("whoami", intern = TRUE)), intern = TRUE),
+			   "/PSSJD/RESPOND/data/source/")
+	data_path <- data_path[file.exists(data_path)]
+	dev_lib_path <- "~/R/x86_64-pc-linux-gnu-library/dev"
+} else if(Sys.info()["sysname"] == "Windows"){
+	data_path <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
+	data_path <- data_path[file.exists(data_path)]
+	data_path <- paste0(data_path, "/")
+	dev_lib_path <- .libPaths()
+}
+
+
+# Libraries
+
+# library(epiR)
+# library(ClinSigMeasures)
+# library(genodds)
+library(DT)
+library(patchwork)
+library(grid)
+library(gridExtra)
+library(knitr)
+# library(marginaleffects)
+library(modelsummary)
+library(ggplot2)
+# library(performance)
+# library(formattable)
+# library(compareGroups)
+# library(car)
+# library(systemfit)
+# library(lmtest) # coefci
+library(emmeans, lib.loc = dev_lib_path)
+# library(scdhlm)
+# library(sandwich) # https://sandwich.r-forge.r-project.org/articles/sandwich.html
+# library(merDeriv) # estfun.lmerMod, bread.lmerMod # https://stackoverflow.com/a/70268157/997979
+# library(robustlmm) # rlmer
+# source("https://raw.githubusercontent.com/masonFG/CIrobustLMM/master/CI_functions/confintLMMFast.R")
+# source("https://raw.githubusercontent.com/masonFG/CIrobustLMM/master/CI_functions/BCaVarCompRob.R")
+# source("https://raw.githubusercontent.com/masonFG/CIrobustLMM/master/CI_functions/BCaDAStau.R")
+# source("https://raw.githubusercontent.com/masonFG/CIrobustLMM/master/CI_functions/BCaML.R")
+library(glmmTMB)
+# library(trouBBlme4SolveR)
+library(lme4)
+library(openxlsx)
+library(multcomp)
+library(clubSandwich)
+library(nlme)
+library(matrixStats)
+library(data.table, lib.loc = dev_lib_path)
+
+# modelsummary auxiliar
+
+mfm <- function(x) lapply(x, \(.y) {if(.y <= 1e+6 && .y >= 1e-49) {formatC(.y, digits = 2, format = "f", big.mark="")}else{formatC(.y, format = "g")}})
+string_estimate <- "{estimate}{stars} [{conf.low}, {conf.high}]"
+# string_estimate <- "{estimate} ({conf.low}, {conf.high})"
+# string_statistic <- "S.E. = {std.error}, p = {p.value}{stars} "
+string_stars <- "+ < .1, * < .05, ** < .01, *** < 0.001"
+gm <- modelsummary::gof_map
+# gm[which(gm$raw %in% c("sigma", "statistic", "df.residual")), "omit"] <- FALSE
+gm[which(gm$raw %in% c("ngroups")), "omit"] <- FALSE
+glance_custom.glmmTMB <- function(x, ...){
+  cbind(broom.mixed:::glance.glmmTMB(x, ...), ngroups = as.integer(summary(x)$ngrps$cond))
+}
+
+
+
+
+# Data loading 
+
+load(paste0(data_path, "../target/BcnMadCE/CEdata2.rdata"))
+
+# Data preparation  
+
+Tlong[, `:=` (phq9_depression = factor(phq9 < 10, levels = c(FALSE, TRUE), labels = c("PHQ-9 >= 10", "PHQ-9 < 10")), gad7_anxiety = factor(gad7 < 10, levels = c(FALSE, TRUE), labels = c("GAD7 >= 10", "GAD7 < 10")))]
+eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
+
+eTlong[, `:=` (age = year(Survey_Completed_On) - t0_soc_02, 
+	       to_soc_covid19 = fifelse(covid19_1 == "No", FALSE, TRUE), 
+	       t0_soc_site = fifelse(Institute_Abbreviation == "SJD", "Bcn", "Mad"))
+       ][, `:=` (baseline_phq_ads = phq_ads[wave == 1],
+		 baseline_phq9 = phq9[wave == 1],
+		 baseline_gad7 = gad7[wave == 1],
+		 baseline_ptsd = ptsd[wave == 1],
+		 mhs = factor(fifelse((csri_sp_mental_g_n == 0 | is.na(csri_sp_mental_g_n)) & (csri_sp_mental_i_n == 0 | is.na(csri_sp_mental_i_n)), 0, 1)),
+		 time = factor(wave, levels = 1:4, labels = c("T1. Baseline", "T2. Week 7 (post DWM)", "T3. Week 13 (post PM+)", "T4. Week 21 (follow-up)"))), 
+       by = .(Record_Id)]
+
+cols <- c("t0_soc_18", "Institute_Abbreviation")
+eTlong[, (cols) := lapply(.SD, \(.x) factor(.x, levels = levels(.x)[c(2,1)])), .SDcols = cols]
+
+
+
+
+main.outcomes <- c("phq_ads", "phq9", "gad7", "ptsd")
+dich.outcomes <- c("phq9_depression", "gad7_anxiety")
+
+plot.labels <- data.frame(names = main.outcomes, axis = c("PHQ-ADS", "PHQ-9", "GAD-7", "PCL-5"), title = c("Anxiety/Depression (primary outcome)", "Depression", "Anxiety", "Posttraumatic stress"))
+
+
+# wb <- createWorkbook() 
+
+
+
+```
+
+# Data collection
+
+## Missing data
+
+```{r}
+
+eTlong[, .(miss = sum(is.na(phq_ads)), .N), by = .(wave, time)
+		  ][, `:=` (`Primary outcome missings` = N[wave == 1] - N + miss)
+		  ][wave != 1, .(time, `Primary outcome missings`)] |> 
+  kable()
+
+melt(eTlong[, aux := .N, by = .(wave,time)][, aux := unique(aux[wave == 1]) - aux][, lapply(.SD, \(.x) sum(is.na(.x)) + unique(aux)), .SDcols = patterns("ptsd|pcl5|sbs_1|^phq_ads|gad7|phq9"), by = .(wave, time)], id.vars = c("wave", "time")) |> 
+  ggplot(aes(x = variable, y = value)) +
+  geom_bar(stat = "identity", width = 0.1) +
+  geom_point(size = 1) +
+  facet_wrap(~time) +
+  labs(y = "# Missing") +
+  coord_flip() +
+  theme_minimal() +
+  theme(axis.title.y = element_blank())
+
+
+# Data view 
+
+
+
+sheetDT <- eTlong[, aux := NULL][, aux := phq_ads[wave==4], by = .(Record_Id)][, aux := is.na(aux)][wave==1, .N, by = .(aux, t0_soc_01)][, p := round(100* N/sum(N), 2), by = .(t0_soc_01)][aux == TRUE]
+sheetDT[, `:=` (variable = "phq_ads", time = "T4", aux = NULL)]
+setcolorder(sheetDT, neworder = c("variable", "time"), before = "N")
+# addWorksheet(wb, sheetName = "Missingness by gender")
+# writeData(wb, sheet = "Missingness by gender", sheetDT)
+kable(sheetDT, caption = "Missingness by gender")
+
+
+
+
+sheetDT <- eTlong[, aux := NULL][, aux := phq_ads[wave==4], by = .(Record_Id)][, aux := is.na(aux)][wave==1, .N, by = .(aux, t0_soc_16)][, p := round(100* N/sum(N), 2), by = .(t0_soc_16)][aux == TRUE]
+sheetDT[, `:=` (variable = "phq_ads", time = "T4", aux = NULL)]
+setcolorder(sheetDT, neworder = c("variable", "time"), before = "N")
+# addWorksheet(wb, sheetName = "Missingness by type of job")
+# writeData(wb, sheet = "Missingness by type of job", sheetDT)
+kable(sheetDT, caption = "Missingness by type of job")
+
+
+```
+
+```{r, fig.height=8}
+
+
+eTlong[, aux := NULL
+       ][, aux := as.integer(difftime(Survey_Completed_On, Survey_Completed_On[wave==1], units = "days")), by = .(Record_Id)
+       ][, .(median(aux)), by = .(Randomization_Group, Institute_Abbreviation, wave, time)
+       ][, V2 := V1[Randomization_Group == "Intervention"] - V1[Randomization_Group == "Control"], by = .(Institute_Abbreviation, wave, time)
+       ][wave != 1
+       ][order(time, Randomization_Group, -Institute_Abbreviation)
+       ][, !c("wave", "V2")] |> 
+  setnames("V1", "value") |> 
+  kable(caption = "Time elapsed from baseline to follow-up assessments")
+
+eTlong[, aux := NULL
+       ][, aux := as.integer(difftime(Survey_Completed_On, Survey_Completed_On[wave==1], units = "days")), by = .(Record_Id)
+       ][, .(median(aux)), by = .(Randomization_Group, Institute_Abbreviation, wave, time)
+       ][, V2 := V1[Randomization_Group == "Intervention"] - V1[Randomization_Group == "Control"], by = .(Institute_Abbreviation, wave, time)
+       ][wave != 1
+       ][order(Institute_Abbreviation, wave, Randomization_Group)] |> 
+  ggplot(aes(x = time, y = V1, fill = Randomization_Group)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  scale_fill_manual(values = c("black", "gray")) +
+  facet_grid(rows = vars(factor(Institute_Abbreviation, levels = c("UAM", "SJD")))) +
+  labs(y = "Days", title = "Days elapsed from baseline to assessments by site and condition") 
+
+
+```
+
+## Adverse events
+
+```{r}
+
+
+sheetDT <- eTlong[sbs_1 == "Sí"][, .(Record_Id, Institute_Abbreviation, wave)]
+# addWorksheet(wb, sheetName = "Adverse events")
+# writeData(wb, sheet = "Adverse events", sheetDT)
+kable(sheetDT, caption = "Adverse events")
+```
+
+## Retention rates
+
+```{r}
+
+
+# eTlong[, .N, by = .(wave, Institute_Abbreviation, Randomization_Group)
+#        ][, miss := N[wave == 1] - N, by = .(Institute_Abbreviation, Randomization_Group)
+#        ][, p := miss/N[wave == 1]*100, by = .(Institute_Abbreviation, Randomization_Group)
+#        ][wave != 1
+#        ][order(wave, -Institute_Abbreviation, -Randomization_Group)]
+
+# rbindlist(lapply(2:4, \(.wave) 
+# 		 eTlong[, aux := NULL
+# 			][, aux := phq_ads[wave == .wave], by = .(Record_Id)
+# 			][, aux := is.na(aux)
+# 			][wave==1, .N, by = .(aux, Institute_Abbreviation, Randomization_Group)
+# 			][, p := 100* N/sum(N), by = .(Institute_Abbreviation, Randomization_Group)
+# 			][aux == TRUE
+# 			][order(-Institute_Abbreviation, -Randomization_Group)]))
+
+sheetDT <- eTlong[, .(miss = sum(is.na(phq_ads)), .N), by = .(wave, time, Institute_Abbreviation, Randomization_Group)
+		  ][, `:=` (miss = N[wave == 1] - N + miss, p = round((N[wave == 1] - N + miss)*100/N[wave == 1], 2)), by = .(Institute_Abbreviation, Randomization_Group)
+		  ][wave != 1
+		  ][order(wave, -Institute_Abbreviation, -Randomization_Group)
+		  ][, !c("wave")]
+# addWorksheet(wb, sheetName = "Retention rates")
+# writeData(wb, sheet = "Retention rates", sheetDT)
+
+kable(sheetDT, caption = "Retention rates")
+
+# eTlong[wave == 1 & Institute_Abbreviation == "SJD" & Randomization_Group == "Control" & !Record_Id %in% eTlong[wave == 3]$Record_Id]$Record_Id
+
+
+```
+
+# Main Results
+
+## Table 1
+
+```{r}
+
+
+
+# Analysis  
+
+## Summaries 
+
+
+### First approximation 
+# outcomes <- c("phq_ads" = "phq9_0|gad7_", "phq9" = "phq9_0", "gad7" = "gad7_", "ptsd" = "pcl5_")
+# ST1 <- rbindlist(lapply(seq_along(outcomes), \(.x){
+# 				out <- names(outcomes)[.x]
+# 				Tlong[, .(outcome = out,
+# 					  avg = mean(.SD[[out]], na.rm = TRUE), 
+# 					  sd = sd(.SD[[out]], na.rm = TRUE),
+# 					  median = median(.SD[[out]], na.rm = TRUE),
+# 					  Q1 = quantile(.SD[[out]], probs = 0.25, na.rm = TRUE),
+# 					  Q3 = quantile(.SD[[out]], probs = 0.75, na.rm = TRUE),
+# 					  max = max(.SD[[out]], na.rm = TRUE),
+# 					  min = min(.SD[[out]], na.rm = TRUE), 
+# 					  lower = t.test(.SD[[out]])$conf.int[1], 
+# 					  upper = t.test(.SD[[out]])$conf.int[2],
+# 					  pval = t.test(.SD[[out]])$p.value,
+# 					  alpha = cronbachs_alpha(sapply(.SD[, -out, with = FALSE], \(.y) as.numeric(.y) - 1))), 
+# 			by = .(wave), 
+# 			.SDcols = patterns(paste0("^((",outcomes[.x],")\\d|", out,"$)"))]
+# }))
+# 
+# 
+# melt(dcast(ST1, outcome ~ wave, value.var = names(ST1[,-c("outcome", "wave")])),
+#      measure.vars = measure(coef = \(.x) factor(.x, levels = names(ST1[,-c("outcome", "wave")])), 
+# 			    value.name, pattern = "^([a-zA-Z0-9]+)_([1234])$"))[order(outcome, coef)]
+
+
+### Similar per institution or group 
+
+
+
+# eTlong[order(Randomization_Group, wave), .(avg_phq_ads = mean(phq_ads, na.rm = TRUE)), by = .(wave, Randomization_Group)]
+# 
+# eS1 <- eTlong[order(Institute_Abbreviation, Randomization_Group, wave), 
+# 	      unlist(lapply(.SD, \(.x) list(mean = mean(.x, na.rm = TRUE),
+# 					    sd = sd(.x, na.rm = TRUE),
+# 					    median = median(.x, na.rm = TRUE),
+# 					    Q1 = quantile(.x, probs = 0.25, na.rm = TRUE),
+# 					    Q3 = quantile(.x, probs = 0.75, na.rm = TRUE),
+# 					    max = max(.x, na.rm = TRUE),
+# 					    min = min(.x, na.rm = TRUE))), 
+# 		     rec = FALSE), 
+#               by = .(Institute_Abbreviation), .SDcols = c("phq_ads", "phq9", "gad7")]
+# 
+# melt(eS1, measure.vars = measure(outcome, value.name, pattern = "(^.*)\\.([a-zA-Z0-9]*)"))
+# 
+# eTlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c("phq_ads"), by = .(wave, Randomization_Group)] |> 
+# ggplot(aes(x = wave, y = phq_ads, colour = Randomization_Group)) +
+# 	geom_line()
+# 
+# na.omit(eTlong, cols = "phq_ads") |> 
+# ggplot(aes(x = factor(wave), y = phq_ads, colour = Randomization_Group)) +
+# 	stat_summary(aes(group = Randomization_Group), geom = "line", fun = mean) +
+# 	stat_summary(aes(group = Randomization_Group), geom = "point", fun = mean) +
+# 	stat_boxplot(geom = "errorbar", position = "identity", width = 0.25) +
+# 	labs(x = "time")
+
+
+
+## Characteristics 
+
+NpwF <- eTlong[wave == 1, .(Overall = .N)]
+NpwF[, `:=` (outcome = "N", measure = "N")]
+setcolorder(NpwF, c("outcome", "measure"))
+
+NpwG <- dcast(eTlong[wave == 1, .N, by = .(Randomization_Group)], . ~ Randomization_Group, value.var = "N")
+setnames(NpwG, old = ".", new = "outcome")
+NpwG$outcome <- NpwG$measure <- "N"
+setcolorder(NpwG, "measure", after = "outcome")
+
+Npw <- NpwF[NpwG, on = .(outcome, measure)]
+
+
+
+catOutcomes <- c("t0_soc_01", "t0_soc_12", "t0_soc_16", "t0_soc_17", "t0_soc_18", "to_soc_covid19", "t0_soc_site")
+
+
+eT1F <- eTlong[wave == 1, .(m_age = mean(age, na.rm = TRUE), sd_age = sd(age, na.rm = TRUE))]
+eT1F[, `:=` (outcome = "age", 
+             measure = "mean (sd)", 
+             Overall = paste0(formatC(m_age, digits = 1, format = "f"), " (", formatC(sd_age, digits = 2, format = "f"),")"))]
+eT1F <- eT1F[, .(outcome, measure, Overall)]
+eT1G <- eTlong[wave == 1, .(m_age = mean(age, na.rm = TRUE), sd_age = sd(age, na.rm = TRUE)), by = .(Randomization_Group)]
+eT1G[, `:=` (age = paste0(formatC(m_age, digits = 1, format = "f"), " (", formatC(sd_age, digits = 2, format = "f"),")"))]
+eT1G <- dcast(eT1G, . ~ Randomization_Group, value.var = "age")
+setnames(eT1G, old = ".", new = "outcome")
+eT1G[, `:=` (outcome = "age", measure = "mean (sd)")]
+setcolorder(eT1G, "measure", after = "outcome")
+eT1s <- eT1F[eT1G, on = .(outcome, measure)]
+
+
+
+eT1lF <- rbindlist(lapply(catOutcomes, \(.x){
+				  setnames(eTlong[wave == 1,.N, by = c(.x)][, outcome := .x], old = .x, new = "measure")
+}))
+setcolorder(eT1lF, "outcome")
+eT1lF[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome)
+      ][, `:=` (Np = paste0(N, " (", formatC(p, digits = 2, format = "f"), "%)"),
+		Randomization_Group = "Overall")]
+setorder(eT1lF, outcome, measure)
+
+eT1lG <- rbindlist(lapply(catOutcomes, \(.x){
+				  setnames(eTlong[wave == 1,.N, by = c(.x, "Randomization_Group")][, outcome := .x], old = .x, new = "measure")
+}))
+setcolorder(eT1lG, "outcome")
+eT1lG[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome, Randomization_Group)
+      ][, Np := paste0(N, " (", formatC(p, digits = 2, format = "f"), "%)")]
+setorder(eT1lG, outcome, Randomization_Group, measure)
+
+eT1l <- dcast(rbind(eT1lF,eT1lG)[, Randomization_Group := factor(Randomization_Group, levels = c("Overall", "Control", "Intervention"))], outcome + measure ~ Randomization_Group, value.var = c("Np"), fill = "0 (0.00%)")
+
+
+sheetDT <- characteristics <- rbind(Npw, eT1s, eT1l)
+fwrite(characteristics, file = paste0(data_path, "../target/BcnMadCE/results/characteristicsT1.csv"))
+
+# addWorksheet(wb, sheetName = "Table 1")
+# writeData(wb, sheet = "Table 1", sheetDT)
+kable(sheetDT, caption = "Table 1. Characteristics of the participants")
+
+
+```
+
+## Table 2
+
+```{r}
+
+
+## Primary/Secondary outcomes description 
+
+
+
+intOutcomes <- c("phq_ads", "phq9", "gad7", "ptsd", "passc", "eq5d5l_6")
+contOutcomes <- c(intOutcomes, grep("^(csri_sp|RES_E)", names(Tlong), value = TRUE))
+c2dOutcomes <- c("phq9_depression", "gad7_anxiety")
+catOutcomes <- c(c2dOutcomes, grep("^(m_T1_CSRI_SP|btq_\\d+$|covid19_)|(?i)^eq5d5l_[12345]", names(Tlong), value = TRUE))
+
+
+
+
+eT2s <- eTlong[, unlist(lapply(.SD, \(.x) {
+				     stpv <- tryCatch(shapiro.test(.x), error = function(e) ifelse(grepl("all 'x' values are identical", e), list(p.value = 1), e))$p.value
+				     .x <- as.numeric(.x)
+				     list(stpv0 = stpv,
+					  stpv = fifelse(stpv < 0.05, 
+							 paste0("Non normal: Shapiro-Wilk test p-value = ", formatC(stpv, digits = 3, flag = "#", format = "g")),
+							 paste0("Normal: Shapiro-Wilk test p-value = ", formatC(stpv, digits = 3, format = "f"))),
+					  nm = sum(!is.na(.x)),
+					  miss = sum(is.na(.x)),
+					  min = min(.x, na.rm = TRUE),
+					  max = max(.x, na.rm = TRUE),
+					  mean = mean(.x, na.rm = TRUE),
+					  sd = sd(.x, na.rm = TRUE),
+					  lower = t.test(.x)$conf.int[1], 
+					  upper = t.test(.x)$conf.int[2],
+					  pval = t.test(.x)$p.value,
+					  median = median(.x, na.rm = TRUE),
+					  Q1 = quantile(.x, probs = 0.25, na.rm = TRUE),
+					  Q3 = quantile(.x, probs = 0.75, na.rm = TRUE))}), 
+		      recursive = FALSE), 
+               by = .(wave, time, Randomization_Group),
+	       .SDcols = contOutcomes]
+
+
+
+
+
+Tcontpre <- melt(eT2s, measure.vars = measure(outcome, value.name, pattern = "(^.*)\\.([a-zA-Z0-9]*)"))
+Tcont <- Tcontpre[, !c("time")]
+
+cols <- c("mean", "lower", "upper")
+Tcont[, (cols) := lapply(.SD, \(.x) formatC(.x, digits = 1, format = "f")), .SDcols = cols]
+cols <- c("median", "Q1", "Q3", "sd")
+Tcont[, (cols) := lapply(.SD, \(.x) formatC(.x, digits = 2, format = "f")), .SDcols = cols]
+
+Tcont[, `:=` (`mean (sd) [CI]` = paste0(mean, " (", sd,") [", lower, ",", upper, "]"),
+	      `median (Q1,Q3) [min,max]` = paste0(median, "(",
+						  Q1, ",",
+						  Q3, ") [",
+						  fifelse(outcome %in% intOutcomes, formatC(min, format = "d"), formatC(min, digits = 2, format = "f")),
+						  ",",
+						  fifelse(outcome %in% intOutcomes, formatC(max, format = "d"), formatC(max, digits = 2, format = "f")),
+						  "]"
+						  ),
+	   `number of subjects (n)` = formatC(nm, format = "d"),
+	   `Missing` = formatC(miss, format = "d"),
+	   `Shapiro-Wilk test p-value` = formatC(stpv0, digits = 3, format = "g"))]
+
+Tcont <- dcast(melt(Tcont, id.vars = c("wave", "Randomization_Group", "outcome"), measure.vars = grep("\\(|-|Missing", names(Tcont)), variable.name = "measure"), outcome + measure ~ wave + Randomization_Group, value.var = "value")
+
+setorder(Tcont, -outcome, measure)
+
+
+
+
+
+
+
+eT2l <- rbindlist(lapply(catOutcomes, \(.x){
+			 setnames(eTlong[,.N, by = c(.x, "wave", "Randomization_Group")][, outcome := .x], old = .x, new = "measure")
+				     }))
+setcolorder(eT2l, "outcome")
+eT2l[, p := 100*fifelse(is.na(measure), N/sum(N), N/ sum(N[!is.na(measure)])), by = .(outcome, wave, Randomization_Group)
+     ][, Np := paste0(N, " (", formatC(p, digits = 0, format = "f"), "%)")]
+setorder(eT2l, outcome, Randomization_Group, wave, measure)
+Tcat <- dcast(eT2l, outcome + measure ~ wave + Randomization_Group, value.var = c("Np"), fill = "0 (0.00%)")
+cols <- grep("outcome|measure", names(Tcat), invert = TRUE, value = TRUE)
+Tcat[, `:=` (measure = factor(fifelse(is.na(measure), "Missing", as.character(measure)), levels = c(levels(Tcat$measure), "Missing")))][, (cols) := lapply(.SD, \(.x) fifelse(measure == "Missing", sub(" \\(.*$", "", .x), .x)), .SDcols = cols]
+
+
+
+
+
+NpwG <- dcast(melt(eTlong[, .N, by = .(wave, Randomization_Group)][, Missing := N[wave == 1] - N, by = .(Randomization_Group)][], measure.vars = c("N", "Missing"), variable.name = "measure"), measure ~ wave + Randomization_Group, value.var = "value")
+NpwG[, outcome := measure]
+setcolorder(NpwG, "outcome")
+
+misscont <- Tcont[, unique(.SD[measure == "Missing", .(outcome, measure)])]
+misscat <- Tcat[, unique(.SD[measure == "Missing", .(outcome, measure)])]
+misscat <- rbind(misscat, data.table(outcome = "phq9_depression", measure = "Missing"))
+NpwG <- NpwG[c(1, 2, rep(2, nrow(misscont)), rep(2, nrow(misscat)))][3:(2 + nrow(misscont)), outcome := misscont$outcome][(3 + nrow(misscont)):(2 + nrow(misscont) + nrow(misscat)), outcome := misscat$outcome][]
+
+
+# NpwG <- dcast(eTlong[, .N, by = .(wave, Randomization_Group)], . ~ wave + Randomization_Group, value.var = "N")
+# setnames(NpwG, old = ".", new = "outcome")
+# NpwG$outcome <- NpwG$measure <- "N"
+# setcolorder(NpwG, "measure", after = "outcome")
+
+
+
+
+
+NpwG <- rbind(NpwG, Tcont, Tcat)
+cols <- grep("outcome|measure", names(NpwG), invert = TRUE, value = TRUE)
+NpwG[measure == "Missing", (cols) := lapply(.SD, \(.x) as.character(sum(as.integer(.x)))), by = .(outcome, measure), .SDcols = cols]
+NpwG <- NpwG[, unique(.SD)]
+setorder(NpwG, outcome, measure)
+# formattable(Tcont,
+# 	    list(area(row = 1:14, col = c("min", "max", "median")) ~ as.integer,
+# 		 area(row = 1:14, col = c("Q1", "Q3", "mean", "sd")) ~ comma,
+# 		 area(row = 15:17, col = min:Q3) ~ comma,
+# 		 stpv = formatter("span", style = ~ style(color = fifelse(grepl("^Non normal", stpv), "red", "green")))))
+# 
+sheetDT <- resultsT2 <- NpwG[(grepl("^(phq_ads|phq9|gad7|ptsd)$", outcome) & grepl("^(mean|Missing)", measure)) | outcome == "N" | grepl("^(phq9|gad7)_[a-z]+$", outcome)
+                  ][c(1, 5, 4, 7, 6, 9, 8, 3, 2, 14, 15, 13, 11, 12, 10)]
+
+fwrite(resultsT2, file = paste0(data_path, "../target/BcnMadCE/results/resultsT2.csv"))
+
+
+# addWorksheet(wb, sheetName = "Table 2")
+# writeData(wb, sheet = "Table 2", sheetDT)
+
+kable(sheetDT, caption = "Table 2. Mental health outcomes by randomisation group and time")
+
+
+# saveWorkbook(wb, paste0(data_path, "../target/BcnMadCE/results/report.xlsx"), overwrite = TRUE)
+
+
+
+
+```
+
+## Plots
+
+```{r}
+
+Tcontpre[outcome %in% intOutcomes[1:4]][, `:=` (Om = Q1 - 1.5*(Q3 - Q1), OM = Q3 + 1.5*(Q3 - Q1), outcome = factor(outcome, levels = intOutcomes[c(1:4)]), time = factor(time, labels = sub("^T\\d\\. ", "", levels(time))))] |> 
+  ggplot(aes(x = time, y = mean, colour = Randomization_Group)) +
+  geom_line(aes(group = Randomization_Group)) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2) +
+  scale_colour_manual(values = c("black", "gray")) +
+  scale_y_continuous(limits = c(0, NA)) +
+  facet_wrap(~outcome, labeller = as_labeller(\(.x) subset(plot.labels, names == .x)$title)) +
+  labs(x = "Time") +
+  theme(legend.position = "top", axis.title.y = element_blank())
+
+
+
+```
+
+```{r}
+
+set.seed(41)
+eTlong[wave == 2, .(Record_Id, k10_score, T0_K10_score, Randomization_Group)][, `:=` (k10m = pmin(k10_score, T0_K10_score), k10M = pmax(k10_score, T0_K10_score), k10mean = k10_score + T0_K10_score, k10bool = factor(fcase(T0_K10_score > k10_score, 1, T0_K10_score < k10_score, -1, default = rep(0, .N)))), by = .(Record_Id)][order(k10mean, decreasing = FALSE)][, Record_Id := factor(Record_Id, levels = Record_Id)] |> 
+  melt(measure.vars = c("k10_score", "T0_K10_score"), variable.name = "tp", value.name = "k10") |> 
+  na.omit() |>
+  ggplot(aes(x = k10, y = Record_Id)) +
+  geom_linerange(aes(xmin = k10m, xmax = k10M, colour = k10bool), size = 0.5) +
+  geom_point(aes(shape = tp), colour = "gray70") +
+  geom_ribbon(aes(xmin = -Inf, xmax = 16, group = Randomization_Group), orientation = 'y', colour = "gray70", alpha = 0.5) +
+  annotate(geom = "text", label = "K-10 < 16", x = 12, y = sample(eTlong$Record_Id, size = 1), size = 3, colour = "white") +
+  scale_colour_manual(name = "Change in K-10 score", labels = c("Better", "Worse", "No change"), values = c("green", "red", "gray")) +
+  scale_shape_manual(name = "Time", labels = c("Baseline", "Week 7 (post DWM)"), values = c(19, 17), limits = c("T0_K10_score", "k10_score")) +
+  facet_grid(rows = vars(Randomization_Group)) +
+  labs(x = "K-10 score", y = "Participant", title = "Changes in psychological distress (K-10 scores) at T2 (post DWM)") +
+  theme_classic() +
+  theme(axis.text.y = element_blank(), legend.position = "bottom")
+
+```
+
+```{r tests, eval=FALSE}
+
+
+## ITT linear mixed model 
+
+# wb <- loadWorkbook(paste0(data_path, "../target/BcnMadCE/results/report.xlsx"))
+
+### First tests 
+
+
+
+fit0 <- lme(phq_ads ~ time + baseline_phq_ads, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
+fit01 <- lme(phq_ads ~ time, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
+fit1 <- lme(phq_ads ~ time + baseline_phq_ads + time:Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
+
+# summary(fit1)
+# intervals(fit1) # nlme
+# vcCR <- vcovCR(fit1, type = "CR2") # clubSandwich
+# coef_test(fit1, vcov = vcCR) # clubSandwich
+# conf_int(fit1, vcov = vcCR) # clubSandwich
+
+
+### Robust reproducibility tests 
+
+# nlme::lme
+fit11 <- lme(phq_ads ~ Randomization_Group + time*Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
+# fit11 <- lme(phq_ads ~ time + time:Randomization_Group, random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit) # the same
+# summary(fit11)
+# intervals(fit11) # intervals(fit11, which = "fixed")[["fixed"]][-1,]
+vcCR11 <- vcovCR(fit11, type = "CR2")
+# conf_int(fit11, vcov = vcCR11)
+
+# lme4::lmer
+fit14 <- lmer(phq_ads ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id), data = eTlong)
+# fit14 <- lmer(phq_ads ~ time + time:Randomization_Group + (1 | Record_Id), data = eTlong) # the same
+# summary(fit14)
+# cbind(fixef(fit14), confint(fit14)[-c(1,2),])
+# sandwich(fit14) # sandwich, merDeriv # NOT working!!!
+vcCR14 <- vcovCR(fit14, type = "CR2")
+# conf_int(fit14, vcov = vcCR14)
+
+# robustlmm::rlmer
+# rfit14 <- rlmer(phq_ads ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id), data = eTlong) # robustlmm
+# summary(rfit14)
+# fixef(rfit14)
+# rCI <- BCaboot(model = rfit14, data = eTlong, clusterid = eTlong$Record_Id, methodCI = "wild", B = 10, confint.level = .95, BCa = TRUE) # NOT WORKING!!!
+
+
+
+
+
+
+### Contrasts/effect sizes analyses 
+set.seed(20221014)
+fit11RG <- emmeans(fit11, "Randomization_Group", by = "time", vcov. = vcCR11, mode = "appx-satterthwaite")
+fit11RG.pw <- emmeans(fit11, pairwise ~ Randomization_Group, by = "time", vcov = vcCR11, mode = "appx-satterthwaite")
+emmip(fit11RG.pw$emmeans, Randomization_Group ~ time, CIs = TRUE)
+eff_size(fit11RG, sigma = sigma(fit11), edf = min(summary(pairs(fit11RG))$df)) 
+
+fit14RG <- emmeans(fit14, "Randomization_Group", by = "time", vcov. = vcCR14, lmer.df = "satterthwaite")
+fit14RG.pw <- emmeans(fit14, pairwise ~ Randomization_Group, by = "time", vcov = vcCR14, lmer.df = "satterthwaite")
+emmip(fit14RG.pw$emmeans, Randomization_Group ~ time, CIs = TRUE)
+eff_size(fit14RG, sigma = sigma(fit14), edf = min(summary(pairs(fit14RG))$df)) 
+
+
+# K <- cbind(rep(0, 4), c(1, rep(0,3)), rbind(rep(0,3), 0*diag(3)), rbind(rep(0,3), diag(3)))
+# rownames(K) <- paste0("Intervention - Control | time", 1:4)
+# colnames(K) <- names(fixef(fit14))
+# confint(glht(fit14, linfct = K, vcov. = as.matrix(vcCR14)))
+# pairs(fit14RG) # extend glht results
+# eff_size(fit14RG, sigma = sigma(fit14), edf = 229)
+# comparisons(fit14, variables = list(Randomization_Group = "pairwise"), by = "time") # extend glht results # marginaleffects
+
+
+
+```
+
+## Models (intention-to-treat)
+
+```{r crude_ITT}
+
+
+#### ITT 
+
+# models <- sapply(main.outcomes, \(.x) {
+#   fit <- lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit)
+#   vcCR <- vcovCR(fit, type = "CR2")
+#   fitRG <- emmeans(fit, "Randomization_Group", by = "time", vcov. = vcCR, mode = "appx-satterthwaite")
+#   fitRG.pw <- emmeans(fit, pairwise ~ Randomization_Group, by = "time", vcov = vcCR, mode = "appx-satterthwaite")
+#   return(list(model = fit, vcov = vcCR, emm = fitRG, pwemm = fitRG.pw))
+#   }, 
+#                  simplify = FALSE, USE.NAMES = TRUE)
+
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+# models <- lapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit))
+# modelsummary(models = models[[1]], estimate = "{estimate} ({conf.low}, {conf.high})", statistic = NULL, gof_map = "nobs")
+
+# addWorksheet(wb, sheetName = "Models (intention-to-treat)")
+# writeData(wb, sheet = "Models (intention-to-treat)", sheetDT)
+
+
+
+```
+
+```{r crude_ITT_EMM}
+
+vcCR <- sapply(names(models), \(.x) vcovCR(models[[.x]], type = "CR2"), USE.NAMES = TRUE, simplify = FALSE)
+set.seed(20221014)
+crudeRG <- modelsRG <- sapply(names(models), \(.x) emmeans(models[[.x]], specs = pairwise ~ Randomization_Group, by = "time", vcov. = vcCR[[.x]], mode = "appx-satterthwaite"), USE.NAMES = TRUE, simplify = FALSE)
+sigmaRG <- sapply(names(models), \(.x) sigma(models[[.x]], USE.NAMES = TRUE, simplify = FALSE))
+edfRG <- sapply(names(modelsRG), \(.x) min(summary(modelsRG[[.x]]$contrasts)$df), USE.NAMES = TRUE, simplify = FALSE)
+
+crude_EMM <- emmRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(modelsRG[[.x]]$emmeans))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, Randomization_Group, time)]
+
+# kable(sheetDT, caption = "Estimated Marginal Means (ITT)")
+
+crude_PW <- conRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(confint(modelsRG[[.x]]$contrasts)))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+crude_PW_ITT <- crude_PW
+
+# kable(sheetDT, caption = "EMM differences (ITT)")
+
+
+
+crude_esRG <- esRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(eff_size(modelsRG[[.x]]$contrasts, sigma = sigmaRG[[.x]], edf = edfRG[[.x]], method = "identity")))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+# kable(sheetDT, caption = "Effect sizes (ITT)")
+
+
+conRG[, contrast := "Difference"]
+esRG[, contrast := "Effect size"]
+setnames(emmRG, "Randomization_Group", "contrast")
+setnames(emmRG, "emmean", "estimate")
+setnames(esRG, "effect.size", "estimate")
+crudeST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, formatC, digits = 1, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), time = factor(time, levels = levels(time)[4:1]))],outcome + time ~ contrast, value.var = "value")
+
+# kable(sheetDT, caption = "Estimated marginal means and 95 percent confidence intervals (ITT)")
+
+
+
+
+
+```
+
+```{r adjusted_ITT}
+
+### Adjusted estimates (incl. baseline covariate) sensitivity analyses 
+
+
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + mhs + Institute_Abbreviation + baseline_", .x)), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+
+# addWorksheet(wb, sheetName = "Adjusted estimates")
+# writeData(wb, sheet = "Adjusted estimates", sheetDT)
+
+
+```
+
+```{r adjusted_ITT_EMM}
+
+vcCR <- sapply(names(models), \(.x) vcovCR(models[[.x]], type = "CR2"), USE.NAMES = TRUE, simplify = FALSE)
+set.seed(20221014)
+adjustedRG <- modelsRG <- sapply(names(models), \(.x) emmeans(models[[.x]], specs = pairwise ~ Randomization_Group, by = "time", vcov. = vcCR[[.x]], mode = "appx-satterthwaite"), USE.NAMES = TRUE, simplify = FALSE)
+sigmaRG <- sapply(names(models), \(.x) sigma(models[[.x]], USE.NAMES = TRUE, simplify = FALSE))
+edfRG <- sapply(names(modelsRG), \(.x) min(summary(modelsRG[[.x]]$contrasts)$df), USE.NAMES = TRUE, simplify = FALSE)
+
+adjusted_EMM <- emmRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(modelsRG[[.x]]$emmeans))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, Randomization_Group, time)]
+
+
+adjusted_PW <- conRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(confint(modelsRG[[.x]]$contrasts)))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+
+adjusted_esRG <- esRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(eff_size(modelsRG[[.x]]$contrasts, sigma = sigmaRG[[.x]], edf = edfRG[[.x]], method = "identity")))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+conRG[, contrast := "Difference"]
+esRG[, contrast := "Effect size"]
+setnames(emmRG, "Randomization_Group", "contrast")
+setnames(emmRG, "emmean", "estimate")
+setnames(esRG, "effect.size", "estimate")
+adjustedST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, formatC, digits = 1, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), time = factor(time, levels = levels(time)[4:1]))], outcome + time ~ contrast, value.var = "value")
+
+
+
+
+
+
+```
+
+```{r ITT_EMM_kable}
+
+kable(merge(crudeST, adjustedST, by = c("outcome", "time"), suffixes = c(" (crude)", " (adjusted)")), caption = "Estimated marginal means and 95 percent confidence intervals (ITT)")
+
+```
+
+```{r plot_test_emmip, eval=FALSE}
+
+# Reproducing emmip
+
+# emmip(modelsRG[[1]]$emmeans, Randomization_Group ~ time, CIs = TRUE)
+
+# ggplot(data.frame(modelsRG[[1]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + 
+#   geom_line(aes(group = Randomization_Group), position = position_dodge(0.1)) + 
+#   geom_linerange(aes(ymin = lower.CL, ymax = upper.CL), 
+#                  alpha = 0.5, position = position_dodge(0.1), linetype = "solid", lwd = 2) + 
+#   geom_point(position = position_dodge(0.1))
+
+# ggplot(data.frame(modelsRG[[1]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + 
+#   geom_line(aes(group = Randomization_Group)) +
+#   geom_point() +
+#   geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2)
+```
+
+```{r crude_ITT_EMM_plot}
+
+modelsRG <- crudeRG
+plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + geom_line(aes(group = Randomization_Group)) + geom_point() + geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 50)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
+
+```
+
+```{r adjusted_ITT_EMM_plot}
+
+modelsRG <- adjustedRG
+plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + geom_line(aes(group = Randomization_Group)) + geom_point() + geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 50)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Adjusted EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
+
+```
+
+```{r crude_forestplot_ITT}
+
+esRG <- crude_esRG
+
+# https://rpubs.com/SteadyStoffel/forest_plot
+# Main part of forestplot
+p1 <- ggplot(esRG[order(-time)][!grepl("T1", time)][, idy := factor(.N:1)], aes(y = idy, x = estimate)) +
+  geom_errorbarh(aes(xmin = lower.CL, xmax = upper.CL), height = 0, colour = "gray") +
+  geom_point(shape = 15, size = 3) +
+  geom_vline(xintercept = 0, cex = 0.25, colour = "gray") +
+  # scale_x_continuous(limits = c(-0.2, NA)) +
+  coord_cartesian(xlim = c(-0, NA)) +
+  labs(x = "Standardized effect size", title = "Effect sizes (crude models)") +
+  theme_classic() +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.line.y = element_blank(), axis.title.y = element_blank())
+  
+
+# Background for forestplot complements
+bgtbl <- ggplot(esRG[order(-time)][!grepl("T1", time)][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), idy = factor(.N:1))], aes(y=label)) + 
+  theme_classic() +
+  ylab(NULL) + 
+  xlab("  ") + 
+  theme(plot.title = element_text(hjust = 0.5, size=10), 
+        ## This is used to help with alignment
+        axis.text.x = element_text(color = "white", hjust = -3, size = 25), 
+        axis.line = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.title.y = element_blank(), 
+        legend.position = "none")
+
+# forestplot Complements
+txtscale <- 3.5
+p2 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = value), size = txtscale) +
+  labs(title = "Effect size (95% CI)")
+p3 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = outcome), size = txtscale) +
+  labs(title = "Outcome")
+p4 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = sub("^T\\d\\. ", "", time)), size = txtscale) +
+  labs(title = "Time")
+
+pgG1 <- ggplotGrob(p1)
+pgG2 <- ggplotGrob(p2)
+pgG3 <- ggplotGrob(p3)
+pgG4 <- ggplotGrob(p4)
+
+grid::grid.newpage()
+vp <- viewport(x = 0.0, y = -0.025, width = 0.15, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG4)
+popViewport()
+vp <- viewport(x = 0.15, y = -0.025, width = 0.08, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG3)
+popViewport()
+vp <- viewport(x = 0.23, y = +0.000, width = 0.64, height = 1.000, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG1)
+popViewport()
+vp <- viewport(x = 0.87, y = -0.025, width = 0.13, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG2)
+popViewport()
+
+```
+
+```{r adjusted_forestplot_ITT}
+
+esRG <- adjusted_esRG
+
+# https://rpubs.com/SteadyStoffel/forest_plot
+# Main part of forestplot
+p1 <- ggplot(esRG[order(-time)][!grepl("T1", time)][, idy := factor(.N:1)], aes(y = idy, x = estimate)) +
+  geom_errorbarh(aes(xmin = lower.CL, xmax = upper.CL), height = 0, colour = "gray") +
+  geom_point(shape = 15, size = 3) +
+  geom_vline(xintercept = 0, cex = 0.25, colour = "gray") +
+  # scale_x_continuous(limits = c(-0.2, NA)) +
+  coord_cartesian(xlim = c(-0, NA)) +
+  labs(x = "Standardized effect size", title = "Effect sizes (adjusted models)") +
+  theme_classic() +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.line.y = element_blank(), axis.title.y = element_blank())
+  
+
+# Background for forestplot complements
+bgtbl <- ggplot(esRG[order(-time)][!grepl("T1", time)][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), idy = factor(.N:1))], aes(y=label)) + 
+  theme_classic() +
+  ylab(NULL) + 
+  xlab("  ") + 
+  theme(plot.title = element_text(hjust = 0.5, size=10), 
+        ## This is used to help with alignment
+        axis.text.x = element_text(color = "white", hjust = -3, size = 25), 
+        axis.line = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.title.y = element_blank(), 
+        legend.position = "none")
+
+# forestplot Complements
+txtscale <- 3.5
+p2 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = value), size = txtscale) +
+  labs(title = "Effect size (95% CI)")
+p3 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = outcome), size = txtscale) +
+  labs(title = "Outcome")
+p4 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = sub("^T\\d\\. ", "", time)), size = txtscale) +
+  labs(title = "Time")
+
+pgG1 <- ggplotGrob(p1)
+pgG2 <- ggplotGrob(p2)
+pgG3 <- ggplotGrob(p3)
+pgG4 <- ggplotGrob(p4)
+
+grid::grid.newpage()
+vp <- viewport(x = 0.0, y = -0.025, width = 0.15, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG4)
+popViewport()
+vp <- viewport(x = 0.15, y = -0.025, width = 0.08, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG3)
+popViewport()
+vp <- viewport(x = 0.23, y = +0.000, width = 0.64, height = 1.000, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG1)
+popViewport()
+vp <- viewport(x = 0.87, y = -0.025, width = 0.13, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG2)
+popViewport()
+
+```
+
+```{r raw_ITT}
+
+crude_EMM[, `:=` (model = "crude", type = "EMM")]
+adjusted_EMM[, `:=` (model = "adjusted", type = "EMM")]
+crude_PW[, `:=` (model = "crude", type = "Diff-EMM")]
+adjusted_PW[, `:=` (model = "adjusted", type = "Diff-EMM")]
+crude_esRG[, `:=` (model = "crude", type = "PWES-EMM")]
+adjusted_esRG[, `:=` (model = "adjusted", type = "PWES-EMM")]
+datatable(setcolorder(rbind(crude_EMM, adjusted_EMM, crude_PW, adjusted_PW, crude_esRG, adjusted_esRG)[, time := substr(time, 1, 2)], c("model", "type")), caption = "This table includes the raw data of the models (just in case something very specific needs to be checked)")
+
+```
+
+```{r non-adjusted-effect-sizes_ITT, eval=FALSE}
+
+esCD <- rbindlist(lapply(main.outcomes, \(.x) 
+			 eTlong[wave != 1, 
+				unlist(.(outcome = .x, (do.call(what = effectsize::cohens_d, args = list(x = reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group", .x)))))), 
+				       recursive = FALSE), 
+				by = .(time)
+				][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(time, outcome)
+				][, Cohens_d := paste0(Cohens_d, " (", CI_low,",",CI_high,")")]))[, .(time, outcome, Cohens_d)]
+
+esOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			 eTlong[wave != 1, 
+				unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+				       recursive = FALSE), 
+				by = .(time)
+				][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(time, outcome)
+				][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(time, outcome, Odds_ratio)]
+
+esLOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			  eTlong[wave != 1, 
+				 unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+					recursive = FALSE), 
+				 by = .(time)
+				 ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(time, outcome)
+				 ][, log_Odds_ratio := paste0(log_Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(time, outcome, log_Odds_ratio)]
+
+sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLOR))[order(time, outcome)]
+
+
+# addWorksheet(wb, sheetName = "Effect sizes (ITT)")
+# writeData(wb, sheet = "Effect sizes (ITT)", sheetDT)
+kable(sheetDT, caption = "Effect sizes")
+
+rm(wb)
+
+```
+
+# Secondary analyses
+
+## Pre-specified per-protocol analyses
+
+```{r PPdata}
+
+#### Per-Protocol PP 
+
+
+eTlong[Randomization_Group == "Intervention" & wave == 2, step_up := +(k10_score >= 16)][, step_up := step_up[wave == 2], by = .(Record_Id)]
+
+eTlongPP <- eTlong[Randomization_Group == "Control" | (dwmN >= 3 & ((pmN >= 4 & step_up == 1) | step_up == 0))]
+
+sheetDT <- eTlongPP[, unique(.SD[, .(Record_Id, Randomization_Group)])][, .N, by = .(Randomization_Group)]
+# addWorksheet(wb, sheetName = "Participants in PP analysis")
+# writeData(wb, sheet = "Participants in PP analysis", sheetDT)
+kable(sheetDT, caption = "Participants in PP analysis")
+
+```
+
+```{r crude_PP}
+
+
+#### PP 
+
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongPP, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+# addWorksheet(wb, sheetName = "Models (per protocol)")
+# writeData(wb, sheet = "Models (per protocol)", sheetDT)
+
+
+```
+
+```{r crude_PP_EMM}
+
+vcCR <- sapply(names(models), \(.x) vcovCR(models[[.x]], type = "CR2"), USE.NAMES = TRUE, simplify = FALSE)
+set.seed(20221014)
+crudeRG <- modelsRG <- sapply(names(models), \(.x) emmeans(models[[.x]], specs = pairwise ~ Randomization_Group, by = "time", vcov. = vcCR[[.x]], mode = "appx-satterthwaite"), USE.NAMES = TRUE, simplify = FALSE)
+sigmaRG <- sapply(names(models), \(.x) sigma(models[[.x]], USE.NAMES = TRUE, simplify = FALSE))
+edfRG <- sapply(names(modelsRG), \(.x) min(summary(modelsRG[[.x]]$contrasts)$df), USE.NAMES = TRUE, simplify = FALSE)
+
+crude_EMM <- emmRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(modelsRG[[.x]]$emmeans))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, Randomization_Group, time)]
+
+
+crude_PW <- conRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(confint(modelsRG[[.x]]$contrasts)))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+
+crude_esRG <- esRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(eff_size(modelsRG[[.x]]$contrasts, sigma = sigmaRG[[.x]], edf = edfRG[[.x]], method = "identity")))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+conRG[, contrast := "Difference"]
+esRG[, contrast := "Effect size"]
+setnames(emmRG, "Randomization_Group", "contrast")
+setnames(emmRG, "emmean", "estimate")
+setnames(esRG, "effect.size", "estimate")
+crudeST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, formatC, digits = 1, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), time = factor(time, levels = levels(time)[4:1]))],outcome + time ~ contrast, value.var = "value")
+
+
+
+
+
+
+```
+
+```{r adjusted_PP}
+
+
+#### PP
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + mhs + Institute_Abbreviation + baseline_", .x)), random = ~ 1 | Record_Id, data = eTlongPP, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+
+
+```
+
+```{r adjusted_PP_EMM}
+
+vcCR <- sapply(names(models), \(.x) vcovCR(models[[.x]], type = "CR2"), USE.NAMES = TRUE, simplify = FALSE)
+set.seed(20221014)
+adjustedRG <- modelsRG <- sapply(names(models), \(.x) emmeans(models[[.x]], specs = pairwise ~ Randomization_Group, by = "time", vcov. = vcCR[[.x]], mode = "appx-satterthwaite"), USE.NAMES = TRUE, simplify = FALSE)
+sigmaRG <- sapply(names(models), \(.x) sigma(models[[.x]], USE.NAMES = TRUE, simplify = FALSE))
+edfRG <- sapply(names(modelsRG), \(.x) min(summary(modelsRG[[.x]]$contrasts)$df), USE.NAMES = TRUE, simplify = FALSE)
+
+adjusted_EMM <- emmRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(modelsRG[[.x]]$emmeans))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, Randomization_Group, time)]
+
+
+adjusted_PW <- conRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(confint(modelsRG[[.x]]$contrasts)))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+
+adjusted_esRG <- esRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(eff_size(modelsRG[[.x]]$contrasts, sigma = sigmaRG[[.x]], edf = edfRG[[.x]], method = "identity")))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+conRG[, contrast := "Difference"]
+esRG[, contrast := "Effect size"]
+setnames(emmRG, "Randomization_Group", "contrast")
+setnames(emmRG, "emmean", "estimate")
+setnames(esRG, "effect.size", "estimate")
+adjustedST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, formatC, digits = 1, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), time = factor(time, levels = levels(time)[4:1]))], outcome + time ~ contrast, value.var = "value")
+
+
+
+
+
+
+```
+
+```{r PP_EMM_kable}
+
+kable(merge(crudeST, adjustedST, by = c("outcome", "time"), suffixes = c(" (crude)", " (adjusted)")), caption = "Estimated marginal means and 95 percent confidence intervals (PP)")
+
+```
+
+```{r crude_PP_EMM_plot}
+
+modelsRG <- crudeRG
+plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + geom_line(aes(group = Randomization_Group)) + geom_point() + geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 50)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
+
+```
+
+```{r adjusted_PP_EMM_plot}
+
+modelsRG <- adjustedRG
+plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + geom_line(aes(group = Randomization_Group)) + geom_point() + geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 50)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Adjusted EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
+
+```
+
+```{r crude_forestplot_PP}
+
+esRG <- crude_esRG
+
+# https://rpubs.com/SteadyStoffel/forest_plot
+# Main part of forestplot
+p1 <- ggplot(esRG[order(-time)][!grepl("T1", time)][, idy := factor(.N:1)], aes(y = idy, x = estimate)) +
+  geom_errorbarh(aes(xmin = lower.CL, xmax = upper.CL), height = 0, colour = "gray") +
+  geom_point(shape = 15, size = 3) +
+  geom_vline(xintercept = 0, cex = 0.25, colour = "gray") +
+  # scale_x_continuous(limits = c(-0.2, NA)) +
+  coord_cartesian(xlim = c(-0, NA)) +
+  labs(x = "Standardized effect size", title = "Effect sizes (crude models)") +
+  theme_classic() +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.line.y = element_blank(), axis.title.y = element_blank())
+  
+
+# Background for forestplot complements
+bgtbl <- ggplot(esRG[order(-time)][!grepl("T1", time)][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), idy = factor(.N:1))], aes(y=label)) + 
+  theme_classic() +
+  ylab(NULL) + 
+  xlab("  ") + 
+  theme(plot.title = element_text(hjust = 0.5, size=10), 
+        ## This is used to help with alignment
+        axis.text.x = element_text(color = "white", hjust = -3, size = 25), 
+        axis.line = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.title.y = element_blank(), 
+        legend.position = "none")
+
+# forestplot Complements
+txtscale <- 3.5
+p2 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = value), size = txtscale) +
+  labs(title = "Effect size (95% CI)")
+p3 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = outcome), size = txtscale) +
+  labs(title = "Outcome")
+p4 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = sub("^T\\d\\. ", "", time)), size = txtscale) +
+  labs(title = "Time")
+
+pgG1 <- ggplotGrob(p1)
+pgG2 <- ggplotGrob(p2)
+pgG3 <- ggplotGrob(p3)
+pgG4 <- ggplotGrob(p4)
+
+grid::grid.newpage()
+vp <- viewport(x = 0.0, y = -0.025, width = 0.15, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG4)
+popViewport()
+vp <- viewport(x = 0.15, y = -0.025, width = 0.08, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG3)
+popViewport()
+vp <- viewport(x = 0.23, y = +0.000, width = 0.64, height = 1.000, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG1)
+popViewport()
+vp <- viewport(x = 0.87, y = -0.025, width = 0.13, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG2)
+popViewport()
+
+```
+
+```{r adjusted_forestplot_PP}
+
+esRG <- adjusted_esRG
+
+# https://rpubs.com/SteadyStoffel/forest_plot
+# Main part of forestplot
+p1 <- ggplot(esRG[order(-time)][!grepl("T1", time)][, idy := factor(.N:1)], aes(y = idy, x = estimate)) +
+  geom_errorbarh(aes(xmin = lower.CL, xmax = upper.CL), height = 0, colour = "gray") +
+  geom_point(shape = 15, size = 3) +
+  geom_vline(xintercept = 0, cex = 0.25, colour = "gray") +
+  # scale_x_continuous(limits = c(-0.2, NA)) +
+  coord_cartesian(xlim = c(-0, NA)) +
+  labs(x = "Standardized effect size", title = "Effect sizes (adjusted models)") +
+  theme_classic() +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.line.y = element_blank(), axis.title.y = element_blank())
+  
+
+# Background for forestplot complements
+bgtbl <- ggplot(esRG[order(-time)][!grepl("T1", time)][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), idy = factor(.N:1))], aes(y=label)) + 
+  theme_classic() +
+  ylab(NULL) + 
+  xlab("  ") + 
+  theme(plot.title = element_text(hjust = 0.5, size=10), 
+        ## This is used to help with alignment
+        axis.text.x = element_text(color = "white", hjust = -3, size = 25), 
+        axis.line = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.title.y = element_blank(), 
+        legend.position = "none")
+
+# forestplot Complements
+txtscale <- 3.5
+p2 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = value), size = txtscale) +
+  labs(title = "Effect size (95% CI)")
+p3 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = outcome), size = txtscale) +
+  labs(title = "Outcome")
+p4 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = sub("^T\\d\\. ", "", time)), size = txtscale) +
+  labs(title = "Time")
+
+pgG1 <- ggplotGrob(p1)
+pgG2 <- ggplotGrob(p2)
+pgG3 <- ggplotGrob(p3)
+pgG4 <- ggplotGrob(p4)
+
+grid::grid.newpage()
+vp <- viewport(x = 0.0, y = -0.025, width = 0.15, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG4)
+popViewport()
+vp <- viewport(x = 0.15, y = -0.025, width = 0.08, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG3)
+popViewport()
+vp <- viewport(x = 0.23, y = +0.000, width = 0.64, height = 1.000, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG1)
+popViewport()
+vp <- viewport(x = 0.87, y = -0.025, width = 0.13, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG2)
+popViewport()
+
+```
+
+```{r raw_PP}
+
+crude_EMM[, `:=` (model = "crude", type = "EMM")]
+adjusted_EMM[, `:=` (model = "adjusted", type = "EMM")]
+crude_PW[, `:=` (model = "crude", type = "Diff-EMM")]
+adjusted_PW[, `:=` (model = "adjusted", type = "Diff-EMM")]
+crude_esRG[, `:=` (model = "crude", type = "PWES-EMM")]
+adjusted_esRG[, `:=` (model = "adjusted", type = "PWES-EMM")]
+datatable(setcolorder(rbind(crude_EMM, adjusted_EMM, crude_PW, adjusted_PW, crude_esRG, adjusted_esRG)[, time := substr(time, 1, 2)], c("model", "type")), caption = "This table includes the raw data of the models (just in case something very specific needs to be checked)")
+
+```
+
+```{r non-adjusted-effect-sizes_PP, eval=FALSE}
+
+
+
+
+
+
+esCD <- rbindlist(lapply(main.outcomes, \(.x) 
+			 eTlongPP[wave != 1, 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::hedges_g, args = list(x = reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group", .x)))))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Hedges_g := paste0(Hedges_g, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Hedges_g)]
+
+esOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			 eTlongPP[wave != 1, 
+				  unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
+
+esLOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			  eTlongPP[wave != 1, 
+				   unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+					  recursive = FALSE), 
+				   by = .(wave)
+				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				   ][, log_Odds_ratio := paste0(log_Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, log_Odds_ratio)]
+
+sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLOR))[order(wave, outcome)]
+
+# addWorksheet(wb, sheetName = "Effect sizes (PP)")
+# writeData(wb, sheet = "Effect sizes (PP)", sheetDT)
+
+
+```
+
+## Sensitivity analysis: distressed participants
+
+```{r SSdata}
+
+### Symptom severity sensitivity analyses 
+
+eTlongSS <- eTlong[, aux := NULL][wave == 1, aux := phq_ads >= 20][, aux := aux[wave == 1], by = .(Record_Id)][aux == TRUE]
+sheetDT <- unique(eTlongSS, by = c("Record_Id", "Randomization_Group"))[, .N, .(Randomization_Group)]
+# addWorksheet(wb, sheetName = "Participants with severity")
+# writeData(wb, sheet = "Participants with severity", sheetDT)
+
+
+kable(sheetDT, caption = "Here, we include only the participants with moderate and severe baseline levels of anxiety/depression (as measured by the PHQ-ADS score).")
+
+```
+
+```{r crude_SS}
+
+
+#### SS 
+
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongSS, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+# addWorksheet(wb, sheetName = "Sensitivity distressed")
+# writeData(wb, sheet = "Sensitivity distressed", sheetDT)
+
+
+```
+
+```{r crude_SS_EMM}
+
+vcCR <- sapply(names(models), \(.x) vcovCR(models[[.x]], type = "CR2"), USE.NAMES = TRUE, simplify = FALSE)
+set.seed(20221014)
+crudeRG <- modelsRG <- sapply(names(models), \(.x) emmeans(models[[.x]], specs = pairwise ~ Randomization_Group, by = "time", vcov. = vcCR[[.x]], mode = "appx-satterthwaite"), USE.NAMES = TRUE, simplify = FALSE)
+sigmaRG <- sapply(names(models), \(.x) sigma(models[[.x]], USE.NAMES = TRUE, simplify = FALSE))
+edfRG <- sapply(names(modelsRG), \(.x) min(summary(modelsRG[[.x]]$contrasts)$df), USE.NAMES = TRUE, simplify = FALSE)
+
+crude_EMM <- emmRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(modelsRG[[.x]]$emmeans))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, Randomization_Group, time)]
+
+
+crude_PW <- conRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(confint(modelsRG[[.x]]$contrasts)))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+
+crude_esRG <- esRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(eff_size(modelsRG[[.x]]$contrasts, sigma = sigmaRG[[.x]], edf = edfRG[[.x]], method = "identity")))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+conRG[, contrast := "Difference"]
+esRG[, contrast := "Effect size"]
+setnames(emmRG, "Randomization_Group", "contrast")
+setnames(emmRG, "emmean", "estimate")
+setnames(esRG, "effect.size", "estimate")
+crudeST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, formatC, digits = 1, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), time = factor(time, levels = levels(time)[4:1]))],outcome + time ~ contrast, value.var = "value")
+
+
+
+
+
+
+```
+
+```{r adjusted_SS}
+
+
+#### SS
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + mhs + Institute_Abbreviation + baseline_", .x)), random = ~ 1 | Record_Id, data = eTlongSS, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+
+
+```
+
+```{r adjusted_SS_EMM}
+
+vcCR <- sapply(names(models), \(.x) vcovCR(models[[.x]], type = "CR2"), USE.NAMES = TRUE, simplify = FALSE)
+set.seed(20221014)
+adjustedRG <- modelsRG <- sapply(names(models), \(.x) emmeans(models[[.x]], specs = pairwise ~ Randomization_Group, by = "time", vcov. = vcCR[[.x]], mode = "appx-satterthwaite"), USE.NAMES = TRUE, simplify = FALSE)
+sigmaRG <- sapply(names(models), \(.x) sigma(models[[.x]], USE.NAMES = TRUE, simplify = FALSE))
+edfRG <- sapply(names(modelsRG), \(.x) min(summary(modelsRG[[.x]]$contrasts)$df), USE.NAMES = TRUE, simplify = FALSE)
+
+adjusted_EMM <- emmRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(modelsRG[[.x]]$emmeans))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, Randomization_Group, time)]
+
+
+adjusted_PW <- conRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(confint(modelsRG[[.x]]$contrasts)))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+
+adjusted_esRG <- esRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(eff_size(modelsRG[[.x]]$contrasts, sigma = sigmaRG[[.x]], edf = edfRG[[.x]], method = "identity")))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+conRG[, contrast := "Difference"]
+esRG[, contrast := "Effect size"]
+setnames(emmRG, "Randomization_Group", "contrast")
+setnames(emmRG, "emmean", "estimate")
+setnames(esRG, "effect.size", "estimate")
+adjustedST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, formatC, digits = 1, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), time = factor(time, levels = levels(time)[4:1]))], outcome + time ~ contrast, value.var = "value")
+
+
+
+
+
+
+```
+
+```{r SS_EMM_kable}
+
+kable(merge(crudeST, adjustedST, by = c("outcome", "time"), suffixes = c(" (crude)", " (adjusted)")), caption = "Estimated marginal means and 95 percent confidence intervals (SS)")
+
+```
+
+```{r crude_SS_EMM_plot}
+
+modelsRG <- crudeRG
+plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + geom_line(aes(group = Randomization_Group)) + geom_point() + geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 50)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
+
+```
+
+```{r adjusted_SS_EMM_plot}
+
+modelsRG <- adjustedRG
+plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + geom_line(aes(group = Randomization_Group)) + geom_point() + geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 50)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Adjusted EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
+
+```
+
+```{r crude_forestplot_SS}
+
+esRG <- crude_esRG
+
+# https://rpubs.com/SteadyStoffel/forest_plot
+# Main part of forestplot
+p1 <- ggplot(esRG[order(-time)][!grepl("T1", time)][, idy := factor(.N:1)], aes(y = idy, x = estimate)) +
+  geom_errorbarh(aes(xmin = lower.CL, xmax = upper.CL), height = 0, colour = "gray") +
+  geom_point(shape = 15, size = 3) +
+  geom_vline(xintercept = 0, cex = 0.25, colour = "gray") +
+  # scale_x_continuous(limits = c(-0.2, NA)) +
+  coord_cartesian(xlim = c(-0, NA)) +
+  labs(x = "Standardized effect size", title = "Effect sizes (crude models)") +
+  theme_classic() +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.line.y = element_blank(), axis.title.y = element_blank())
+  
+
+# Background for forestplot complements
+bgtbl <- ggplot(esRG[order(-time)][!grepl("T1", time)][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), idy = factor(.N:1))], aes(y=label)) + 
+  theme_classic() +
+  ylab(NULL) + 
+  xlab("  ") + 
+  theme(plot.title = element_text(hjust = 0.5, size=10), 
+        ## This is used to help with alignment
+        axis.text.x = element_text(color = "white", hjust = -3, size = 25), 
+        axis.line = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.title.y = element_blank(), 
+        legend.position = "none")
+
+# forestplot Complements
+txtscale <- 3.5
+p2 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = value), size = txtscale) +
+  labs(title = "Effect size (95% CI)")
+p3 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = outcome), size = txtscale) +
+  labs(title = "Outcome")
+p4 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = sub("^T\\d\\. ", "", time)), size = txtscale) +
+  labs(title = "Time")
+
+pgG1 <- ggplotGrob(p1)
+pgG2 <- ggplotGrob(p2)
+pgG3 <- ggplotGrob(p3)
+pgG4 <- ggplotGrob(p4)
+
+grid::grid.newpage()
+vp <- viewport(x = 0.0, y = -0.025, width = 0.15, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG4)
+popViewport()
+vp <- viewport(x = 0.15, y = -0.025, width = 0.08, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG3)
+popViewport()
+vp <- viewport(x = 0.23, y = +0.000, width = 0.64, height = 1.000, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG1)
+popViewport()
+vp <- viewport(x = 0.87, y = -0.025, width = 0.13, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG2)
+popViewport()
+
+```
+
+```{r adjusted_forestplot_SS}
+
+esRG <- adjusted_esRG
+
+# https://rpubs.com/SteadyStoffel/forest_plot
+# Main part of forestplot
+p1 <- ggplot(esRG[order(-time)][!grepl("T1", time)][, idy := factor(.N:1)], aes(y = idy, x = estimate)) +
+  geom_errorbarh(aes(xmin = lower.CL, xmax = upper.CL), height = 0, colour = "gray") +
+  geom_point(shape = 15, size = 3) +
+  geom_vline(xintercept = 0, cex = 0.25, colour = "gray") +
+  # scale_x_continuous(limits = c(-0.2, NA)) +
+  coord_cartesian(xlim = c(-0, NA)) +
+  labs(x = "Standardized effect size", title = "Effect sizes (adjusted models)") +
+  theme_classic() +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.line.y = element_blank(), axis.title.y = element_blank())
+  
+
+# Background for forestplot complements
+bgtbl <- ggplot(esRG[order(-time)][!grepl("T1", time)][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), idy = factor(.N:1))], aes(y=label)) + 
+  theme_classic() +
+  ylab(NULL) + 
+  xlab("  ") + 
+  theme(plot.title = element_text(hjust = 0.5, size=10), 
+        ## This is used to help with alignment
+        axis.text.x = element_text(color = "white", hjust = -3, size = 25), 
+        axis.line = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.title.y = element_blank(), 
+        legend.position = "none")
+
+# forestplot Complements
+txtscale <- 3.5
+p2 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = value), size = txtscale) +
+  labs(title = "Effect size (95% CI)")
+p3 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = outcome), size = txtscale) +
+  labs(title = "Outcome")
+p4 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = sub("^T\\d\\. ", "", time)), size = txtscale) +
+  labs(title = "Time")
+
+pgG1 <- ggplotGrob(p1)
+pgG2 <- ggplotGrob(p2)
+pgG3 <- ggplotGrob(p3)
+pgG4 <- ggplotGrob(p4)
+
+grid::grid.newpage()
+vp <- viewport(x = 0.0, y = -0.025, width = 0.15, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG4)
+popViewport()
+vp <- viewport(x = 0.15, y = -0.025, width = 0.08, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG3)
+popViewport()
+vp <- viewport(x = 0.23, y = +0.000, width = 0.64, height = 1.000, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG1)
+popViewport()
+vp <- viewport(x = 0.87, y = -0.025, width = 0.13, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG2)
+popViewport()
+
+```
+
+```{r raw_SS}
+
+crude_EMM[, `:=` (model = "crude", type = "EMM")]
+adjusted_EMM[, `:=` (model = "adjusted", type = "EMM")]
+crude_PW[, `:=` (model = "crude", type = "Diff-EMM")]
+adjusted_PW[, `:=` (model = "adjusted", type = "Diff-EMM")]
+crude_esRG[, `:=` (model = "crude", type = "PWES-EMM")]
+adjusted_esRG[, `:=` (model = "adjusted", type = "PWES-EMM")]
+datatable(setcolorder(rbind(crude_EMM, adjusted_EMM, crude_PW, adjusted_PW, crude_esRG, adjusted_esRG)[, time := substr(time, 1, 2)], c("model", "type")), caption = "This table includes the raw data of the models (just in case something very specific needs to be checked)")
+
+```
+
+```{r non-adjusted-effect-sizes_SS, eval=FALSE}
+
+
+
+
+
+
+esCD <- rbindlist(lapply(main.outcomes, \(.x) 
+			 eTlongSS[wave != 1, 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::hedges_g, args = list(x = reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group", .x)))))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Hedges_g := paste0(Hedges_g, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Hedges_g)]
+
+esOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			 eTlongSS[wave != 1, 
+				  unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
+
+esLOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			  eTlongSS[wave != 1, 
+				   unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+					  recursive = FALSE), 
+				   by = .(wave)
+				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				   ][, log_Odds_ratio := paste0(log_Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, log_Odds_ratio)]
+
+sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLOR))[order(wave, outcome)]
+
+# addWorksheet(wb, sheetName = "Effect sizes distressed")
+# writeData(wb, sheet = "Effect sizes distressed", sheetDT)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Sensitivity: Complete-case analysis
+
+```{r CCdata}
+
+
+
+### Complete case sensitivity analyses 
+
+
+
+
+eTlongCC <- eTlong[!is.na(phq_ads) & !is.na(ptsd)][, aux := NULL][, aux := .N, by = .(Record_Id)][aux == 4]
+sheetDT <- unique(eTlongCC[, .(Record_Id, Randomization_Group)])[, .N, by = .(Randomization_Group)]
+# addWorksheet(wb, sheetName = "Complete cases")
+# writeData(wb, sheet = "Complete cases", sheetDT)
+
+
+kable(sheetDT, caption = "We conducted a sensitivity analysis including only the participants who completed all assessments (i.e., a complete-case analysis)")
+
+```
+
+```{r crude_CC}
+
+
+#### CC 
+
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongCC, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+
+# addWorksheet(wb, sheetName = "Sensitivity - CC")
+# writeData(wb, sheet = "Sensitivity - CC", sheetDT)
+
+```
+
+```{r crude_CC_EMM}
+
+vcCR <- sapply(names(models), \(.x) vcovCR(models[[.x]], type = "CR2"), USE.NAMES = TRUE, simplify = FALSE)
+set.seed(20221014)
+crudeRG <- modelsRG <- sapply(names(models), \(.x) emmeans(models[[.x]], specs = pairwise ~ Randomization_Group, by = "time", vcov. = vcCR[[.x]], mode = "appx-satterthwaite"), USE.NAMES = TRUE, simplify = FALSE)
+sigmaRG <- sapply(names(models), \(.x) sigma(models[[.x]], USE.NAMES = TRUE, simplify = FALSE))
+edfRG <- sapply(names(modelsRG), \(.x) min(summary(modelsRG[[.x]]$contrasts)$df), USE.NAMES = TRUE, simplify = FALSE)
+
+crude_EMM <- emmRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(modelsRG[[.x]]$emmeans))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, Randomization_Group, time)]
+
+
+crude_PW <- conRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(confint(modelsRG[[.x]]$contrasts)))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+
+crude_esRG <- esRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(eff_size(modelsRG[[.x]]$contrasts, sigma = sigmaRG[[.x]], edf = edfRG[[.x]], method = "identity")))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+conRG[, contrast := "Difference"]
+esRG[, contrast := "Effect size"]
+setnames(emmRG, "Randomization_Group", "contrast")
+setnames(emmRG, "emmean", "estimate")
+setnames(esRG, "effect.size", "estimate")
+crudeST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, formatC, digits = 1, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), time = factor(time, levels = levels(time)[4:1]))],outcome + time ~ contrast, value.var = "value")
+
+
+
+
+
+
+```
+
+```{r adjusted_CC}
+
+
+#### CC
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + mhs + Institute_Abbreviation + baseline_", .x)), random = ~ 1 | Record_Id, data = eTlongCC, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+
+
+```
+
+```{r adjusted_CC_EMM}
+
+vcCR <- sapply(names(models), \(.x) vcovCR(models[[.x]], type = "CR2"), USE.NAMES = TRUE, simplify = FALSE)
+set.seed(20221014)
+adjustedRG <- modelsRG <- sapply(names(models), \(.x) emmeans(models[[.x]], specs = pairwise ~ Randomization_Group, by = "time", vcov. = vcCR[[.x]], mode = "appx-satterthwaite"), USE.NAMES = TRUE, simplify = FALSE)
+sigmaRG <- sapply(names(models), \(.x) sigma(models[[.x]], USE.NAMES = TRUE, simplify = FALSE))
+edfRG <- sapply(names(modelsRG), \(.x) min(summary(modelsRG[[.x]]$contrasts)$df), USE.NAMES = TRUE, simplify = FALSE)
+
+adjusted_EMM <- emmRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(modelsRG[[.x]]$emmeans))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, Randomization_Group, time)]
+
+
+adjusted_PW <- conRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(confint(modelsRG[[.x]]$contrasts)))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+
+adjusted_esRG <- esRG <- sheetDT <- rbindlist(lapply(names(modelsRG), \(.x) setcolorder(setDT(data.frame(eff_size(modelsRG[[.x]]$contrasts, sigma = sigmaRG[[.x]], edf = edfRG[[.x]], method = "identity")))[, outcome := .x], "outcome")))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, contrast, time)]
+
+
+
+conRG[, contrast := "Difference"]
+esRG[, contrast := "Effect size"]
+setnames(emmRG, "Randomization_Group", "contrast")
+setnames(emmRG, "emmean", "estimate")
+setnames(esRG, "effect.size", "estimate")
+adjustedST <- sheetDT <- dcast(rbindlist(list(emmRG, conRG, esRG))[, lapply(.SD, formatC, digits = 1, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), time = factor(time, levels = levels(time)[4:1]))], outcome + time ~ contrast, value.var = "value")
+
+
+
+
+
+
+```
+
+```{r CC_EMM_kable}
+
+kable(merge(crudeST, adjustedST, by = c("outcome", "time"), suffixes = c(" (crude)", " (adjusted)")), caption = "Estimated marginal means and 95 percent confidence intervals (CC)")
+
+```
+
+```{r crude_CC_EMM_plot}
+
+modelsRG <- crudeRG
+plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + geom_line(aes(group = Randomization_Group)) + geom_point() + geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 50)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Crude EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
+
+```
+
+```{r adjusted_CC_EMM_plot}
+
+modelsRG <- adjustedRG
+plotsRG <- lapply(names(modelsRG), \(.x) ggplot(data.frame(modelsRG[[.x]]$emmeans), aes(x = time, y = emmean, color = Randomization_Group)) + geom_line(aes(group = Randomization_Group)) + geom_point() + geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) + scale_x_discrete(labels = ~sub("^T\\d\\. ", "", .)) + scale_y_continuous(limits = c(0, 50)) + scale_color_manual(values = c("gray", "black")) + labs(title = paste("Adjusted EMM of the", subset(plot.labels, names == .x)$axis, "total score"), y = paste(subset(plot.labels, names == .x)$axis, "score")) + theme(axis.title.x = element_blank(), axis.text.x = element_text(size = 8), title = element_text(size = 8)))
+wrap_plots(plotsRG) + plot_layout(guides = "collect") & theme(legend.position='bottom')
+
+```
+
+```{r crude_forestplot_CC}
+
+esRG <- crude_esRG
+
+# https://rpubs.com/SteadyStoffel/forest_plot
+# Main part of forestplot
+p1 <- ggplot(esRG[order(-time)][!grepl("T1", time)][, idy := factor(.N:1)], aes(y = idy, x = estimate)) +
+  geom_errorbarh(aes(xmin = lower.CL, xmax = upper.CL), height = 0, colour = "gray") +
+  geom_point(shape = 15, size = 3) +
+  geom_vline(xintercept = 0, cex = 0.25, colour = "gray") +
+  # scale_x_continuous(limits = c(-0.2, NA)) +
+  coord_cartesian(xlim = c(-0, NA)) +
+  labs(x = "Standardized effect size", title = "Effect sizes (crude models)") +
+  theme_classic() +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.line.y = element_blank(), axis.title.y = element_blank())
+  
+
+# Background for forestplot complements
+bgtbl <- ggplot(esRG[order(-time)][!grepl("T1", time)][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), idy = factor(.N:1))], aes(y=label)) + 
+  theme_classic() +
+  ylab(NULL) + 
+  xlab("  ") + 
+  theme(plot.title = element_text(hjust = 0.5, size=10), 
+        ## This is used to help with alignment
+        axis.text.x = element_text(color = "white", hjust = -3, size = 25), 
+        axis.line = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.title.y = element_blank(), 
+        legend.position = "none")
+
+# forestplot Complements
+txtscale <- 3.5
+p2 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = value), size = txtscale) +
+  labs(title = "Effect size (95% CI)")
+p3 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = outcome), size = txtscale) +
+  labs(title = "Outcome")
+p4 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = sub("^T\\d\\. ", "", time)), size = txtscale) +
+  labs(title = "Time")
+
+pgG1 <- ggplotGrob(p1)
+pgG2 <- ggplotGrob(p2)
+pgG3 <- ggplotGrob(p3)
+pgG4 <- ggplotGrob(p4)
+
+grid::grid.newpage()
+vp <- viewport(x = 0.0, y = -0.025, width = 0.15, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG4)
+popViewport()
+vp <- viewport(x = 0.15, y = -0.025, width = 0.08, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG3)
+popViewport()
+vp <- viewport(x = 0.23, y = +0.000, width = 0.64, height = 1.000, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG1)
+popViewport()
+vp <- viewport(x = 0.87, y = -0.025, width = 0.13, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG2)
+popViewport()
+
+```
+
+```{r adjusted_forestplot_CC}
+
+esRG <- adjusted_esRG
+
+# https://rpubs.com/SteadyStoffel/forest_plot
+# Main part of forestplot
+p1 <- ggplot(esRG[order(-time)][!grepl("T1", time)][, idy := factor(.N:1)], aes(y = idy, x = estimate)) +
+  geom_errorbarh(aes(xmin = lower.CL, xmax = upper.CL), height = 0, colour = "gray") +
+  geom_point(shape = 15, size = 3) +
+  geom_vline(xintercept = 0, cex = 0.25, colour = "gray") +
+  # scale_x_continuous(limits = c(-0.2, NA)) +
+  coord_cartesian(xlim = c(-0, NA)) +
+  labs(x = "Standardized effect size", title = "Effect sizes (adjusted models)") +
+  theme_classic() +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.line.y = element_blank(), axis.title.y = element_blank())
+  
+
+# Background for forestplot complements
+bgtbl <- ggplot(esRG[order(-time)][!grepl("T1", time)][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = is.numeric, by = .(outcome, contrast, time)][, `:=` (value = paste0(estimate, " (", lower.CL, ", ", upper.CL, ")"), outcome = factor(outcome, levels = main.outcomes, labels = plot.labels$axis), idy = factor(.N:1))], aes(y=label)) + 
+  theme_classic() +
+  ylab(NULL) + 
+  xlab("  ") + 
+  theme(plot.title = element_text(hjust = 0.5, size=10), 
+        ## This is used to help with alignment
+        axis.text.x = element_text(color = "white", hjust = -3, size = 25), 
+        axis.line = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank(),
+        axis.title.y = element_blank(), 
+        legend.position = "none")
+
+# forestplot Complements
+txtscale <- 3.5
+p2 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = value), size = txtscale) +
+  labs(title = "Effect size (95% CI)")
+p3 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = outcome), size = txtscale) +
+  labs(title = "Outcome")
+p4 <- bgtbl +
+  geom_text(aes(x = 1, y = idy, label = sub("^T\\d\\. ", "", time)), size = txtscale) +
+  labs(title = "Time")
+
+pgG1 <- ggplotGrob(p1)
+pgG2 <- ggplotGrob(p2)
+pgG3 <- ggplotGrob(p3)
+pgG4 <- ggplotGrob(p4)
+
+grid::grid.newpage()
+vp <- viewport(x = 0.0, y = -0.025, width = 0.15, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG4)
+popViewport()
+vp <- viewport(x = 0.15, y = -0.025, width = 0.08, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG3)
+popViewport()
+vp <- viewport(x = 0.23, y = +0.000, width = 0.64, height = 1.000, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG1)
+popViewport()
+vp <- viewport(x = 0.87, y = -0.025, width = 0.13, height = 1.025, just = c("left", "bottom"))
+pushViewport(vp)
+grid.draw(pgG2)
+popViewport()
+
+```
+
+```{r raw_CC}
+
+crude_EMM[, `:=` (model = "crude", type = "EMM")]
+adjusted_EMM[, `:=` (model = "adjusted", type = "EMM")]
+crude_PW[, `:=` (model = "crude", type = "Diff-EMM")]
+adjusted_PW[, `:=` (model = "adjusted", type = "Diff-EMM")]
+crude_esRG[, `:=` (model = "crude", type = "PWES-EMM")]
+adjusted_esRG[, `:=` (model = "adjusted", type = "PWES-EMM")]
+datatable(setcolorder(rbind(crude_EMM, adjusted_EMM, crude_PW, adjusted_PW, crude_esRG, adjusted_esRG)[, time := substr(time, 1, 2)], c("model", "type")), caption = "This table includes the raw data of the models (just in case something very specific needs to be checked)")
+
+```
+
+```{r non-adjusted-effect-sizes_CC, eval=FALSE}
+
+
+
+
+
+
+esCD <- rbindlist(lapply(main.outcomes, \(.x) 
+			 eTlongCC[wave != 1, 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::hedges_g, args = list(x = reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group", .x)))))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Hedges_g := paste0(Hedges_g, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Hedges_g)]
+
+esOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			 eTlongCC[wave != 1, 
+				  unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
+
+esLOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			  eTlongCC[wave != 1, 
+				   unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+					  recursive = FALSE), 
+				   by = .(wave)
+				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				   ][, log_Odds_ratio := paste0(log_Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, log_Odds_ratio)]
+
+sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLOR))[order(wave, outcome)]
+
+# addWorksheet(wb, sheetName = "Effect sizes distressed")
+# writeData(wb, sheet = "Effect sizes distressed", sheetDT)
+
+
+```
+
+
+
+
+
+
+
+
+
+## Sensitivity: Binary outcomes
+
+```{r crude_binary}
+
+
+### Binary outcomes (logistics models) sensitivity analyses 
+
+# sheetDT <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x) { 
+# 				    fit <- dwmw(glmer(as.formula(paste0(.x, " ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id)")), data = eTlong, family = binomial))
+# 				    # exp(cbind(fit, confint(fit))) 
+# 				     }))
+
+
+# crudemodels <- models <- sapply(dich.outcomes, \(.x) dwmw(glmer(as.formula(paste0(.x, " ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id)")), data = eTlong, family = binomial)), simplify = FALSE, USE.NAMES = TRUE)
+
+
+crudemodels <- models <- sapply(dich.outcomes, \(.x) glmmTMB(as.formula(paste0(.x, " ~ Randomization_Group + time*Randomization_Group + (1 | Record_Id)")), data = eTlong, family = binomial), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) {
+				    ntv <- exp(confint(models[[.x]]))
+				    # ntv <- ntv[!grepl("\\(Intercept\\)", rownames(ntv)),]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv))
+				     }))
+
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "Estimate", before = "2.5 %")
+
+# addWorksheet(wb, sheetName = "Binary outcomes")
+# writeData(wb, sheet = "Binary outcomes", sheetDT)
+
+
+```
+
+```{r adjusted_binary}
+
+### Adjusted estimates (incl. baseline covariate) sensitivity analyses 
+
+# adjustedmodels <- models <- sapply(dich.outcomes, \(.x) dwmw(glmer(as.formula(paste0(.x, " ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + mhs + Institute_Abbreviation + baseline_", sub("_.*$", "", .x), " + (1 | Record_Id)")), data = eTlong, family = binomial)), simplify = FALSE, USE.NAMES = TRUE)
+
+adjustedmodels <- models <- sapply(dich.outcomes, \(.x) glmmTMB(as.formula(paste0(.x, " ~ Randomization_Group + time*Randomization_Group + t0_soc_01 + t0_soc_02 + t0_soc_12 + mhs + Institute_Abbreviation + baseline_", sub("_.*$", "", .x), " + (1 | Record_Id)")), data = eTlong, family = binomial, control = glmmTMBControl(optimizer = optim, optArgs = list(method = "BFGS"))), simplify = FALSE, USE.NAMES = TRUE)
+
+
+
+```
+
+```{r}
+
+modelsummary(models = c(crudemodels, adjustedmodels)[c(1,3,2,4)], estimate = string_estimate, exponentiate = TRUE, statistic = NULL, gof_map = gm, fmt = list(estimate = mfm, conf.low = mfm, conf.high = mfm, rmse = 3, fmt = 2, ngrps = as.integer), stars = TRUE, notes = string_stars)
+
+```
+
+```{r, eval=FALSE}
+
+
+### Sensitivity analyses per site 
+#### ITT 
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+
+
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+# addWorksheet(wb, sheetName = "Sensitivity - ITT nested")
+# writeData(wb, sheet = "Sensitivity - ITT nested", sheetDT)
+
+#### Per-Protocol PP 
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = list(Record_Id = ~ 1, Institute_Abbreviation = ~ 1), data = eTlongPP, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+# addWorksheet(wb, sheetName = "Sensitivity - PP nested")
+# writeData(wb, sheet = "Sensitivity - PP nested", sheetDT)
+
+
+### Female sensitivity analyses 
+
+eTlongFF <- eTlong[t0_soc_01 == "Mujer"]
+sheetDT <- unique(eTlongFF[, .(Record_Id, Randomization_Group)])[, .N, by = .(Randomization_Group)]
+# addWorksheet(wb, sheetName = "Female participants")
+# writeData(wb, sheet = "Female participants", sheetDT)
+
+
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongFF, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+# addWorksheet(wb, sheetName = "Sensitivity - Female")
+# writeData(wb, sheet = "Sensitivity - Female", sheetDT)
+
+esCD <- rbindlist(lapply(main.outcomes, \(.x) 
+			 eTlongFF[wave != 1, 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::cohens_d, args = list(x = reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group", .x)))))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Cohens_d", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Cohens_d := paste0(Cohens_d, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Cohens_d)]
+
+esOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			 eTlongFF[wave != 1, 
+				  unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
+
+esLOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			  eTlongFF[wave != 1, 
+				   unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+					  recursive = FALSE), 
+				   by = .(wave)
+				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				   ][, log_Odds_ratio := paste0(log_Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, log_Odds_ratio)]
+
+sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLOR))[order(wave, outcome)]
+
+# addWorksheet(wb, sheetName = "Effect sizes - Female")
+# writeData(wb, sheet = "Effect sizes - Female", sheetDT)
+
+
+
+
+
+
+
+
+
+### Sqrt outcomes sensitivity analyses 
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0("sqrt(", .x,") ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlong, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+
+# addWorksheet(wb, sheetName = "Sensitivity - SQRT")
+# writeData(wb, sheet = "Sensitivity - SQRT", sheetDT)
+
+
+
+
+
+
+### Concurrent psychotherapy sensitivity analyses 
+
+eTlongCP <- eTlong[, aux := NULL][, aux := .N, by = .(Record_Id)][(csri_sp_mental_g_n == 0 | is.na(csri_sp_mental_g_n)) & (csri_sp_mental_i_n == 0 | is.na(csri_sp_mental_i_n))][, aux2 := .N, by = .(Record_Id)][aux == aux2]
+sheetDT <- unique(eTlongCP[, .(Record_Id, Randomization_Group)])[, .N, by = .(Randomization_Group)]
+# addWorksheet(wb, sheetName = "Concurrent psychotherapy")
+# writeData(wb, sheet = "Concurrent psychotherapy", sheetDT)
+
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongCP, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+# addWorksheet(wb, sheetName = "Sensitivity - CP")
+# writeData(wb, sheet = "Sensitivity - CP", sheetDT)
+
+esCD <- rbindlist(lapply(main.outcomes, \(.x) 
+			 eTlongCP[wave != 1, 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::hedges_g, args = list(x = reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group", .x)))))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Hedges_g := paste0(Hedges_g, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Hedges_g)]
+
+esOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			 eTlongCP[wave != 1, 
+				  unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
+
+esLOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			  eTlongCP[wave != 1, 
+				   unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+					  recursive = FALSE), 
+				   by = .(wave)
+				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				   ][, log_Odds_ratio := paste0(log_Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, log_Odds_ratio)]
+
+sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLOR))[order(wave, outcome)]
+
+# addWorksheet(wb, sheetName = "Effect sizes - CP")
+# writeData(wb, sheet = "Effect sizes - CP", sheetDT)
+
+
+
+
+
+### Full programme sensitivity analyses 
+
+eTlongFP <- eTlong[Randomization_Group == "Control" | (dwmN >= 3 & pmN >= 4)]
+sheetDT <- eTlongFP[, unique(.SD[, .(Record_Id, Randomization_Group)])][, .N, by = .(Randomization_Group)]
+
+
+
+# addWorksheet(wb, sheetName = "Full program")
+# writeData(wb, sheet = "Full program", sheetDT)
+
+
+
+models <- sapply(main.outcomes, \(.x) lme(as.formula(paste0(.x," ~ Randomization_Group + time*Randomization_Group")), random = ~ 1 | Record_Id, data = eTlongFP, na.action = na.omit), simplify = FALSE, USE.NAMES = TRUE)
+
+sheetDT <- rbindlist(lapply(names(models), \(.x) { 
+				    ntv <- intervals(models[[.x]], which = "fixed")[["fixed"]]
+				    do.call(cbind, list(data.table(outcome = .x), term = rownames(ntv), ntv)) 
+				     }))
+sheetDT <- sheetDT[, lapply(.SD, formatC, format = "f", digits = 2), .SDcols = is.numeric, by = .(outcome, term)]
+setcolorder(sheetDT, "est.", before = "lower")
+# addWorksheet(wb, sheetName = "Sensitivity - FP")
+# writeData(wb, sheet = "Sensitivity - FP", sheetDT)
+
+esCD <- rbindlist(lapply(main.outcomes, \(.x) 
+			 eTlongFP[wave != 1, 
+				  unlist(.(outcome = .x, (do.call(what = effectsize::hedges_g, args = list(x = reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group", .x)))))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Hedges_g", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Hedges_g := paste0(Hedges_g, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Hedges_g)]
+
+esOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			 eTlongFP[wave != 1, 
+				  unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = effectsize::oddsratio, args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+					 recursive = FALSE), 
+				  by = .(wave)
+				  ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				  ][, Odds_ratio := paste0(Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, Odds_ratio)]
+
+esLOR <- rbindlist(lapply(c("phq9_depression", "gad7_anxiety"), \(.x)  
+			  eTlongFP[wave != 1, 
+				   unlist(.(outcome = sub("_[a-z]+$", "", .x), (do.call(what = \(x, y) effectsize::oddsratio(x, y, log = TRUE), args = na.omit(.SD[, .(x = Randomization_Group, y = get(.x))])))), 
+					  recursive = FALSE), 
+				   by = .(wave)
+				   ][, lapply(.SD, formatC, digits = 2, format = "f"), .SDcols = c("log_Odds_ratio", "CI_low", "CI_high"), by = .(wave, outcome)
+				   ][, log_Odds_ratio := paste0(log_Odds_ratio, " (", CI_low,",",CI_high,")")]))[, .(wave, outcome, log_Odds_ratio)]
+
+sheetDT <- effS <- Reduce(\(x, y) merge(x, y, all = TRUE), list(esCD, esOR, esLOR))[order(wave, outcome)]
+
+# addWorksheet(wb, sheetName = "Effect sizes - FP")
+# writeData(wb, sheet = "Effect sizes - FP", sheetDT)
+
+
+
+
+
+
+
+```
+
+## Adherence to intervention protocols
+
+```{r}
+
+cat("NO DATA")
+
+```
+
+## NNT
+
+Number needed to treat $= \frac{1}{(P_C-P_I)}$, where $c=Control$,
+$i=Intervention$, and for each timepoint $t$ and outcome $Y$, 
+
+$$
+P_i = P_i^{(t)} = {\frac{\# Y \geq 10}{\# i}}_{|i, t}
+$$ 
+
+$$
+P_c = P_c^{(t)} = {\frac{\# Y \geq 10}{\# c}}_{|c, t}
+$$
+
+Manual computation:
+
+```{r}
+
+na.omit(eTlong, cols = "phq9")[, .(Pi = .SD[phq9 >= 10 & Randomization_Group == "Intervention", .N] / .SD[Randomization_Group == "Intervention", .N], Ni = .SD[Randomization_Group == "Intervention", .N], Pc = .SD[phq9 >= 10 & Randomization_Group == "Control", .N] / .SD[Randomization_Group == "Control", .N], Nc = .SD[Randomization_Group == "Control", .N]), by = .(time)][, `:=` (SED = sqrt(Pi*(1-Pi)/Ni + Pc*(1-Pc)/Nc), NNT = 1/(Pc - Pi))][, `:=` (NNT.lower = 1/((Pc-Pi) + qnorm((1+0.95)/2)*SED), NNT.upper = 1/((Pc-Pi) - qnorm((1+0.95)/2)*SED))][, lapply(.SD, formatC, digits = 4), .SDcols = is.numeric, by = .(time)] |> 
+  kable(caption = "Crude NNT for PHQ-9") |> kableExtra::kable_styling()
+
+na.omit(eTlong, cols = "gad7")[, .(Pi = .SD[gad7 >= 10 & Randomization_Group == "Intervention", .N] / .SD[Randomization_Group == "Intervention", .N], Ni = .SD[Randomization_Group == "Intervention", .N], Pc = .SD[gad7 >= 10 & Randomization_Group == "Control", .N] / .SD[Randomization_Group == "Control", .N], Nc = .SD[Randomization_Group == "Control", .N]), by = .(time)][, `:=` (SED = sqrt(Pi*(1-Pi)/Ni + Pc*(1-Pc)/Nc), NNT = 1/(Pc - Pi))][, `:=` (NNT.lower = 1/((Pc-Pi) + qnorm((1+0.95)/2)*SED), NNT.upper = 1/((Pc-Pi) - qnorm((1+0.95)/2)*SED))][, lapply(.SD, formatC, digits = 4), .SDcols = is.numeric, by = .(time)] |> 
+  kable(caption = "Crude NNT for GAD-7") |> kableExtra::kable_styling()
+
+```
+
+<!--Using `ClinSigMeasures` package:-->
+
+```{r, results='markup', message=TRUE, eval=FALSE}
+
+cat("NNT for PHQ-9")
+
+eTlong[, .N, by = .(Randomization_Group, phq9_depression, wave)][order(wave,-Randomization_Group,phq9_depression)][!is.na(phq9_depression)] |> split(by = "wave") |> lapply(getElement, "N") |> lapply(structure, names = paste0("Cell",1:4)) |> lapply(as.list) |> lapply(do.call, what = nnt) |> invisible()
+
+
+cat("NNT for GAD-7")
+
+eTlong[, .N, by = .(Randomization_Group, gad7_anxiety, wave)][order(wave,-Randomization_Group,gad7_anxiety)][!is.na(gad7_anxiety)] |> split(by = "wave") |> lapply(getElement, "N") |> lapply(structure, names = paste0("Cell",1:4)) |> lapply(as.list) |> lapply(do.call, what = nnt) |> invisible()
+
+```
+
+<!--Using `genodds` package:-->
+
+```{r, results='markup', eval=FALSE}
+
+cat("NNT for PHQ-9")
+
+suppressWarnings(genodds(eTlong$phq9_depression, eTlong$Randomization_Group, eTlong$time, nnt = TRUE))
+
+cat("NNT for GAD-7")
+
+suppressWarnings(genodds(eTlong$gad7_anxiety, eTlong$Randomization_Group, eTlong$time, nnt = TRUE))
+
+```
+
+Using Kraemer-Kupfer formula (Furukawa and Leucht, 2011), 
+
+$$
+NNT = \frac{1}{2\Phi\left(\frac{d}{\sqrt(2)}\right) - 1}
+$$ 
+
+we compute approximated NNTs from Cohen's d so it may be applied also
+to continuous outcomes:
+
+```{r}
+
+melt(eTlong[, unlist(lapply(main.outcomes, \(.x) structure(data.table(effectsize::cohens_d(reformulate("Randomization_Group", response = .x), data = na.omit(.SD, cols = c("Randomization_Group",.x)))$Cohens_d), names = .x)), recursive = FALSE),  by = .(time)], id.vars = "time", value.name = "d", variable.name = "outcome")[, KKNNT := 1 / (2 * pnorm(d/sqrt(2)) - 1)] |> 
+  kable(caption = "Kraemer-Kupfer approximation of NNT") |> 
+  kableExtra::kable_styling()
+
+```
+
+Let's remark NNT satisfies:
+
+$$
+NNT = \frac{1}{(1-P_i) - (1 - P_c)}
+$$ 
+
+
+Meanwhile, 
+
+$$
+P_c^c := 1-P_c = {\frac{\# Y < 10}{\#c}}_{|c,t}={\frac{\frac{\#Y<10}{\#Y\geq10}}{1 + \frac{\#Y<10}{\#Y\geq10}}}_{|c,t} = \frac{odds(\#Y<10)_{|c,t}}{1 + odds(\#Y<10)_{|c,t}}
+$$ 
+
+and idem 
+
+$$
+P_i^c := 1-P_i = {\frac{\# Y < 10}{\#i}}_{|i,t}={\frac{\frac{\#Y<10}{\#Y\geq10}}{1 + \frac{\#Y<10}{\#Y\geq10}}}_{|i,t} = \frac{odds(\#Y<10)_{|i,t}}{1 + odds(\#Y<10)_{|i,t}}
+$$
+
+Finally, the "estimated" odds for $t=1$ are 
+$$
+odds(\#Y<10)_{|c,1} \sim \exp\left((Intercept)\right)
+$$ 
+and
+
+$$
+odds(\#Y<10)_{|i,1} \sim \exp\left((Intercept) + Randomization\_Group[Intervention]\right)
+$$
+
+and for $t\neq1$ are 
+$$
+odds(\#Y<10)_{|c,t} \sim \exp\left((Intercept) + Time[t]\right)
+$$ 
+and
+
+$$
+odds(\#Y<10)_{|i,t} \sim \exp\left((Intercept) + Time[t] + Randomization\_Group[Intervention] + Time[t]:Randomization\_Group[Intervention]\right)
+$$
+
+Therefore, we can compute estimated NNT from the binary outcome logistic
+mixed model:
+
+```{r}
+
+
+crudeFE <- lapply(crudemodels, fixef)
+crudeFE <- lapply(crudeFE, getElement, name = "cond")
+
+controlodds <- mapply(`+`, lapply(crudeFE, getElement, name = "(Intercept)"), lapply(crudeFE, \(.x) c(0, sapply(grep("^time", names(.x)), \(.y) .x[[.y]]))), SIMPLIFY = FALSE)
+interventionodds <- mapply(`+`, lapply(crudeFE, getElement, name = "Randomization_GroupIntervention"), lapply(crudeFE, \(.x) c(0, sapply(grep("Intervention.*time", names(.x)), \(.y) .x[[.y]]))), SIMPLIFY = FALSE)
+interventionodds <- mapply(`+`, controlodds, interventionodds, SIMPLIFY = FALSE)
+
+controlodds <- lapply(controlodds, exp)
+interventionodds <- lapply(interventionodds, exp)
+
+cpc <- lapply(controlodds, \(.x) .x/(1+.x))
+cpi <- lapply(interventionodds, \(.x) .x/(1+.x))
+
+
+cpc <- melt(setDT(data.frame(time = unique(eTlong$time), cpc)), id.vars = "time", measure.vars = 2:3, variable.name = "outcome", value.name = "cpc")
+cpi <- melt(setDT(data.frame(time = unique(eTlong$time), cpi)), id.vars = "time", measure.vars = 2:3, variable.name = "outcome", value.name = "cpi")
+
+
+kable(merge(cpc, cpi, by = c("outcome", "time"))[, NNT := 1/(cpi - cpc)], caption = "Estimated NNT") |> kableExtra::kable_styling()
+
+```
+
+
+And in the same way Kraemer-Kupfer formula may be applied to standardized effect sizes instead of Cohen's'd:
+
+```{r}
+kable(crude_PW_ITT[, KKNNT := 1 / (2 * pnorm(estimate/sqrt(2)) - 1)], caption = "Estimated Kraemer-Kupfer approximation of NNT") |> 
+  kableExtra::kable_styling()
+```
+
+
+## Cronbach's alpha
+
+```{r cronbach, results='markup'}
+
+
+
+
+
+
+
+sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("phq9_0")]|> psych::alpha()
+
+# addWorksheet(wb, sheetName = "Cronbach PHQ-9")
+# writeData(wb, sheet = "Cronbach PHQ-9", cbind(sheetDT[["total"]], structure(as.data.frame.list(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))))
+# addWorksheet(wb, sheetName = "PHQ-9 Reliab. item dropped")
+# writeData(wb, sheet = "PHQ-9 Reliab. item dropped", sheetDT[["alpha.drop"]], rowNames = TRUE)
+# addWorksheet(wb, sheetName = "PHQ-9 Item statistics")
+# writeData(wb, sheet = "PHQ-9 Item statistics", sheetDT[["item.stats"]], rowNames = TRUE)
+# addWorksheet(wb, sheetName = "PHQ-9 Non missing frequency")
+# writeData(wb, sheet = "PHQ-9 Non missing frequency", sheetDT[["response.freq"]], rowNames = TRUE)
+
+sheetDT
+
+
+sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("gad7_\\d")]|> psych::alpha()
+# addWorksheet(wb, sheetName = "Cronbach GAD7")
+# writeData(wb, sheet = "Cronbach GAD7", cbind(sheetDT[["total"]], structure(as.data.frame.list(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))))
+# addWorksheet(wb, sheetName = "GAD7 Reliab. item dropped")
+# writeData(wb, sheet = "GAD7 Reliab. item dropped", sheetDT[["alpha.drop"]], rowNames = TRUE)
+# addWorksheet(wb, sheetName = "GAD7 Item statistics")
+# writeData(wb, sheet = "GAD7 Item statistics", sheetDT[["item.stats"]], rowNames = TRUE)
+# addWorksheet(wb, sheetName = "GAD7 Non missing frequency")
+# writeData(wb, sheet = "GAD7 Non missing frequency", sheetDT[["response.freq"]], rowNames = TRUE)
+
+sheetDT
+
+sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("pcl5_\\d")]|> psych::alpha()
+# addWorksheet(wb, sheetName = "Cronbach PCL-5")
+# writeData(wb, sheet = "Cronbach PCL-5", cbind(sheetDT[["total"]], structure(as.data.frame.list(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))))
+# addWorksheet(wb, sheetName = "PCL-5 Reliab. item dropped")
+# writeData(wb, sheet = "PCL-5 Reliab. item dropped", sheetDT[["alpha.drop"]], rowNames = TRUE)
+# addWorksheet(wb, sheetName = "PCL-5 Item statistics")
+# writeData(wb, sheet = "PCL-5 Item statistics", sheetDT[["item.stats"]], rowNames = TRUE)
+# addWorksheet(wb, sheetName = "PCL-5 Non missing frequency")
+# writeData(wb, sheet = "PCL-5 Non missing frequency", sheetDT[["response.freq"]], rowNames = TRUE)
+
+sheetDT
+
+sheetDT <- Tlong[wave==1, sapply(.SD, \(.y) as.numeric(.y) - 1), .SDcols = patterns("phq9_0|gad7_\\d")]|> psych::alpha()
+# addWorksheet(wb, sheetName = "Cronbach PHQ-ADS")
+# writeData(wb, sheet = "Cronbach PHQ-ADS", cbind(sheetDT[["total"]], structure(as.data.frame.list(sheetDT$feldt), names = paste0("Feldt - ", names(sheetDT$feldt)))))
+# addWorksheet(wb, sheetName = "PHQ-ADS Reliab. item dropped")
+# writeData(wb, sheet = "PHQ-ADS Reliab. item dropped", sheetDT[["alpha.drop"]], rowNames = TRUE)
+# addWorksheet(wb, sheetName = "PHQ-ADS Item statistics")
+# writeData(wb, sheet = "PHQ-ADS Item statistics", sheetDT[["item.stats"]], rowNames = TRUE)
+# addWorksheet(wb, sheetName = "PHQ-ADS Non missing frequency")
+# writeData(wb, sheet = "PHQ-ADS Non missing frequency", sheetDT[["response.freq"]], rowNames = TRUE)
+
+sheetDT
+
+# saveWorkbook(wb, paste0(data_path, "../target/BcnMadCE/results/report3.xlsx"), overwrite = TRUE)
+
+```
+
+# Session Info
+
+```{r, results='markup'}
+sessionInfo()
+```
+
