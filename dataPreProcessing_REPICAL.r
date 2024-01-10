@@ -108,7 +108,7 @@ setnames(dataL, \(.x) sub("^t1_(t[01])", "\\1", .x))
 setnames(dataL, \(.x) gsub("^(btq|phq9|passc|k10)_([123456789])$", "\\1_0\\2", .x))
 setnames(dataL, \(.x) gsub("^csri_(.*)$", "csri_sp_\\1", .x))
 setnames(dataL, \(.x) gsub("^m_CSRI_(.*)$", "m_T1_CSRI_SP_\\1", .x))
-
+setnames(dataL, "eq5d5l_6_1", "eq5d5l_6")
 
 
 #cols <- c("Randomization_Group")
