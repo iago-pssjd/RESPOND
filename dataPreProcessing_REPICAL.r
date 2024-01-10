@@ -134,7 +134,7 @@ dataL[, t0_soc_02 := anydate(t0_soc_02)]
 
 #R!! Removing extra observations
 
-dataL <- dataL[!Record_ID %in% paste0("SJD-", c(112,127,132,999)]
+dataL <- dataL[!Record_ID %in% paste0("SJD-", c(112,127,132,999))]
 
 
 #R!! Data outcomes
