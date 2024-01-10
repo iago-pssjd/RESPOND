@@ -39,9 +39,7 @@ AD <- c(0, 0.081, 0.128, 0.270, 0.348)
 #R! Metadata
 
 fields <- fread(paste0(data_add, "BcnMadCE/field_options.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
-#scitems <- fread(paste0(data_add, "BcnMadCE/study_variablelist.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
 items <- fread(paste0(data_add, "BcnMadCE/survey_variablelist.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
-#scmetadata <- merge(scitems, fields, all = FALSE, by.x = "Optiongroup name", by.y = "Option group name", allow.cartesian = TRUE)
 
 
 
@@ -94,8 +92,6 @@ setDT(dataW)
 #R!! Fix dataset names
 
 setnames(dataW, old = c("t2_phq9_item10", "t3_phq_item10", "t4_phq9_item10", paste0("t1_covid19_0", 1:4), "SJD_ID", "Grupo", "K10_tot2"), new = c(paste0(paste0("t", 2:4), "_phq9_10"), paste0("t1_covid19_", 1:4), "Record_ID", "Randomization_Group", "t2_k10_score"))
-#1 = Intervention
-#2 = Control
 
 
 #R!! Reshape dataset
@@ -123,16 +119,6 @@ setnames(dataL, \(.x) gsub("^m_CSRI_(.*)$", "m_T1_CSRI_SP_\\1", .x))
 
 
 
-#R!! Removing variables
-
-## Not in Respond Clinical Essay with those names and unnecessary
-#dataL <- dataL[, !c("Login_ID", "K10_tot2")]
-
-## In Respond Clinical Essay but uncertain categories/codes and unnecessary
-#dataL <- dataL[, !c("t1_soc_01_1", "t1_soc_1", "t1_soc_1_1")]
-
-#t0_soc_02 = year of birth
-#t0_soc_01 = gender
 
 #R!! Processing variables
 
@@ -144,6 +130,12 @@ dataL[, c(m1cols) := lapply(.SD, \(.x) .x - 1L), .SDcols = m1cols]
 ddFormats <- c("%d/%m/%Y", "%d-%m-%Y", "%d %m %Y", "%d.%m.%Y")
 addFormats(ddFormats)
 dataL[, t0_soc_02 := anydate(t0_soc_02)]
+
+
+#R!! Removing extra observations
+
+dataL <- dataL[!Record_ID %in% paste0("SJD-", c(112,127,132,999)]
+
 
 #R!! Data outcomes
 
