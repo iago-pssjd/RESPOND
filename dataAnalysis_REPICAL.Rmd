@@ -19,7 +19,7 @@ editor_options:
 
 knitr::opts_chunk$set(echo = FALSE, results = 'asis', 
                       fig.height = 10, fig.width = 10,
-                      eval = TRUE, message = FALSE, warning = FALSE)
+                      eval = FALSE, message = FALSE, warning = FALSE)
 # OS ddependencies
 
 if(Sys.info()["sysname"] == "Linux"){
@@ -788,7 +788,7 @@ kable(sheetDT, caption = "Effect sizes")
 rm(wb)
 
 ```
-
+<!--
 # Secondary analyses
 
 
@@ -1570,35 +1570,6 @@ na.omit(eTlong, cols = "gad7")[, .(Pi = .SD[gad7 >= 10 & Randomization_Group == 
 
 ```
 
-<!--Using `ClinSigMeasures` package:-->
-
-```{r, results='markup', message=TRUE, eval=FALSE}
-
-cat("NNT for PHQ-9")
-
-eTlong[, .N, by = .(Randomization_Group, phq9_depression, wave)][order(wave,-Randomization_Group,phq9_depression)][!is.na(phq9_depression)] |> split(by = "wave") |> lapply(getElement, "N") |> lapply(structure, names = paste0("Cell",1:4)) |> lapply(as.list) |> lapply(do.call, what = nnt) |> invisible()
-
-
-cat("NNT for GAD-7")
-
-eTlong[, .N, by = .(Randomization_Group, gad7_anxiety, wave)][order(wave,-Randomization_Group,gad7_anxiety)][!is.na(gad7_anxiety)] |> split(by = "wave") |> lapply(getElement, "N") |> lapply(structure, names = paste0("Cell",1:4)) |> lapply(as.list) |> lapply(do.call, what = nnt) |> invisible()
-
-```
-
-<!--Using `genodds` package:-->
-
-```{r, results='markup', eval=FALSE}
-
-cat("NNT for PHQ-9")
-
-suppressWarnings(genodds(eTlong$phq9_depression, eTlong$Randomization_Group, eTlong$time, nnt = TRUE))
-
-cat("NNT for GAD-7")
-
-suppressWarnings(genodds(eTlong$gad7_anxiety, eTlong$Randomization_Group, eTlong$time, nnt = TRUE))
-
-```
-
 Using Kraemer-Kupfer formula (Furukawa and Leucht, 2011), 
 
 $$
@@ -1687,4 +1658,4 @@ sheetDT
 ```{r, results='markup'}
 sessionInfo()
 ```
-
+-->
