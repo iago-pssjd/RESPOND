@@ -280,7 +280,7 @@ CreateTableOne(vars = c("age", paste0("t0_soc_", c(formatC(c(1,12,16,17,18), fla
 
 ## Table 2
 
-```{r}
+```{r, eval=FALSE}
 
 CreateTableOne(vars = c("phq_ads", "phq9", "gad7", "ptsd", "phq9_depression", "gad7_anxiety"), includeNA = TRUE, strata = c("Randomization_Group", "wave"), data = eTlong, addOverall = FALSE, test = FALSE) |> kableone(showAllLevels = TRUE)
 ```
