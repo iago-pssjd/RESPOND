@@ -1,6 +1,5 @@
 ---
-title: "RESPOND WP4 - Preliminary trial results"
-subtitle: "RCT Primary Analysis"
+title: "REPICAL - Preliminary results"
 author: "Iago Giné-Vázquez"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
@@ -17,8 +16,6 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
-# BcnMadCE.r
-# from BcnMadCEdata_wranfactors.r
 
 knitr::opts_chunk$set(echo = FALSE, results = 'asis', 
                       fig.height = 10, fig.width = 10,
@@ -43,34 +40,15 @@ if(Sys.info()["sysname"] == "Linux"){
 
 # Libraries
 
-# library(epiR)
-# library(ClinSigMeasures)
-# library(genodds)
 library(DT)
 library(patchwork)
 library(grid)
 library(gridExtra)
 library(knitr)
-# library(marginaleffects)
 library(modelsummary)
 library(ggplot2)
-# library(performance)
-# library(formattable)
-# library(compareGroups)
-# library(car)
-# library(systemfit)
-# library(lmtest) # coefci
 library(emmeans, lib.loc = dev_lib_path)
-# library(scdhlm)
-# library(sandwich) # https://sandwich.r-forge.r-project.org/articles/sandwich.html
-# library(merDeriv) # estfun.lmerMod, bread.lmerMod # https://stackoverflow.com/a/70268157/997979
-# library(robustlmm) # rlmer
-# source("https://raw.githubusercontent.com/masonFG/CIrobustLMM/master/CI_functions/confintLMMFast.R")
-# source("https://raw.githubusercontent.com/masonFG/CIrobustLMM/master/CI_functions/BCaVarCompRob.R")
-# source("https://raw.githubusercontent.com/masonFG/CIrobustLMM/master/CI_functions/BCaDAStau.R")
-# source("https://raw.githubusercontent.com/masonFG/CIrobustLMM/master/CI_functions/BCaML.R")
 library(glmmTMB)
-# library(trouBBlme4SolveR)
 library(lme4)
 library(openxlsx)
 library(multcomp)
@@ -82,9 +60,9 @@ library(data.table, lib.loc = dev_lib_path)
 # modelsummary auxiliar
 
 mfm <- function(x) lapply(x, \(.y) {if(.y <= 1e+6 && .y >= 1e-49) {formatC(.y, digits = 2, format = "f", big.mark="")}else{formatC(.y, format = "g")}})
-string_estimate <- "{estimate}{stars} [{conf.low}, {conf.high}]"
-# string_estimate <- "{estimate} ({conf.low}, {conf.high})"
-# string_statistic <- "S.E. = {std.error}, p = {p.value}{stars} "
+# string_estimate <- "{estimate}{stars} [{conf.low}, {conf.high}]"
+string_estimate <- "{estimate} ({conf.low}, {conf.high})"
+string_statistic <- "S.E. = {std.error}, p = {p.value}{stars} "
 string_stars <- "+ < .1, * < .05, ** < .01, *** < 0.001"
 gm <- modelsummary::gof_map
 # gm[which(gm$raw %in% c("sigma", "statistic", "df.residual")), "omit"] <- FALSE
@@ -102,21 +80,23 @@ load(paste0(data_path, "../target/BcnMadCE/CEdata2.rdata"))
 
 # Data preparation  
 
+Tlong <- dataL
 Tlong[, `:=` (phq9_depression = factor(phq9 < 10, levels = c(FALSE, TRUE), labels = c("PHQ-9 >= 10", "PHQ-9 < 10")), gad7_anxiety = factor(gad7 < 10, levels = c(FALSE, TRUE), labels = c("GAD7 >= 10", "GAD7 < 10")))]
-eTlong <- merge(screening, Tlong, all = TRUE, by.x = "Record_Id", by.y = "Castor_Record_ID")
+eTlong <- Tlong
 
-eTlong[, `:=` (age = year(Survey_Completed_On) - t0_soc_02, 
-	       to_soc_covid19 = fifelse(covid19_1 == "No", FALSE, TRUE), 
-	       t0_soc_site = fifelse(Institute_Abbreviation == "SJD", "Bcn", "Mad"))
+setnames(eTlong, "Record_ID", "Record_Id")
+
+eTlong[, `:=` (age = 2023 - year(t0_soc_02), 
+	       t0_soc_covid19 = fifelse(covid19_1 == "No", FALSE, TRUE))
        ][, `:=` (baseline_phq_ads = phq_ads[wave == 1],
 		 baseline_phq9 = phq9[wave == 1],
 		 baseline_gad7 = gad7[wave == 1],
 		 baseline_ptsd = ptsd[wave == 1],
 		 mhs = factor(fifelse((csri_sp_mental_g_n == 0 | is.na(csri_sp_mental_g_n)) & (csri_sp_mental_i_n == 0 | is.na(csri_sp_mental_i_n)), 0, 1)),
-		 time = factor(wave, levels = 1:4, labels = c("T1. Baseline", "T2. Week 7 (post DWM)", "T3. Week 13 (post PM+)", "T4. Week 21 (follow-up)"))), 
+		 time = factor(wave, levels = 1:4, labels = c("T1. Baseline", "T2", "T3", "T4"))), 
        by = .(Record_Id)]
 
-cols <- c("t0_soc_18", "Institute_Abbreviation")
+cols <- c("t0_soc_18")
 eTlong[, (cols) := lapply(.SD, \(.x) factor(.x, levels = levels(.x)[c(2,1)])), .SDcols = cols]
 
 
@@ -180,40 +160,13 @@ kable(sheetDT, caption = "Missingness by type of job")
 
 ```
 
-```{r, fig.height=8}
-
-
-eTlong[, aux := NULL
-       ][, aux := as.integer(difftime(Survey_Completed_On, Survey_Completed_On[wave==1], units = "days")), by = .(Record_Id)
-       ][, .(median(aux)), by = .(Randomization_Group, Institute_Abbreviation, wave, time)
-       ][, V2 := V1[Randomization_Group == "Intervention"] - V1[Randomization_Group == "Control"], by = .(Institute_Abbreviation, wave, time)
-       ][wave != 1
-       ][order(time, Randomization_Group, -Institute_Abbreviation)
-       ][, !c("wave", "V2")] |> 
-  setnames("V1", "value") |> 
-  kable(caption = "Time elapsed from baseline to follow-up assessments")
-
-eTlong[, aux := NULL
-       ][, aux := as.integer(difftime(Survey_Completed_On, Survey_Completed_On[wave==1], units = "days")), by = .(Record_Id)
-       ][, .(median(aux)), by = .(Randomization_Group, Institute_Abbreviation, wave, time)
-       ][, V2 := V1[Randomization_Group == "Intervention"] - V1[Randomization_Group == "Control"], by = .(Institute_Abbreviation, wave, time)
-       ][wave != 1
-       ][order(Institute_Abbreviation, wave, Randomization_Group)] |> 
-  ggplot(aes(x = time, y = V1, fill = Randomization_Group)) +
-  geom_bar(stat = "identity", position = position_dodge()) +
-  scale_fill_manual(values = c("black", "gray")) +
-  facet_grid(rows = vars(factor(Institute_Abbreviation, levels = c("UAM", "SJD")))) +
-  labs(y = "Days", title = "Days elapsed from baseline to assessments by site and condition") 
-
-
-```
 
 ## Adverse events
 
 ```{r}
 
 
-sheetDT <- eTlong[sbs_1 == "Sí"][, .(Record_Id, Institute_Abbreviation, wave)]
+sheetDT <- eTlong[sbs_1 == "Sí"][, .(Record_Id, wave)]
 # addWorksheet(wb, sheetName = "Adverse events")
 # writeData(wb, sheet = "Adverse events", sheetDT)
 kable(sheetDT, caption = "Adverse events")
@@ -224,32 +177,16 @@ kable(sheetDT, caption = "Adverse events")
 ```{r}
 
 
-# eTlong[, .N, by = .(wave, Institute_Abbreviation, Randomization_Group)
-#        ][, miss := N[wave == 1] - N, by = .(Institute_Abbreviation, Randomization_Group)
-#        ][, p := miss/N[wave == 1]*100, by = .(Institute_Abbreviation, Randomization_Group)
-#        ][wave != 1
-#        ][order(wave, -Institute_Abbreviation, -Randomization_Group)]
-
-# rbindlist(lapply(2:4, \(.wave) 
-# 		 eTlong[, aux := NULL
-# 			][, aux := phq_ads[wave == .wave], by = .(Record_Id)
-# 			][, aux := is.na(aux)
-# 			][wave==1, .N, by = .(aux, Institute_Abbreviation, Randomization_Group)
-# 			][, p := 100* N/sum(N), by = .(Institute_Abbreviation, Randomization_Group)
-# 			][aux == TRUE
-# 			][order(-Institute_Abbreviation, -Randomization_Group)]))
-
-sheetDT <- eTlong[, .(miss = sum(is.na(phq_ads)), .N), by = .(wave, time, Institute_Abbreviation, Randomization_Group)
-		  ][, `:=` (miss = N[wave == 1] - N + miss, p = round((N[wave == 1] - N + miss)*100/N[wave == 1], 2)), by = .(Institute_Abbreviation, Randomization_Group)
+sheetDT <- eTlong[, .(miss = sum(is.na(phq_ads)), .N), by = .(wave, time, Randomization_Group)
+		  ][, `:=` (miss = N[wave == 1] - N + miss, p = round((N[wave == 1] - N + miss)*100/N[wave == 1], 2)), by = .(Randomization_Group)
 		  ][wave != 1
-		  ][order(wave, -Institute_Abbreviation, -Randomization_Group)
+		  ][order(wave, -Randomization_Group)
 		  ][, !c("wave")]
 # addWorksheet(wb, sheetName = "Retention rates")
 # writeData(wb, sheet = "Retention rates", sheetDT)
 
 kable(sheetDT, caption = "Retention rates")
 
-# eTlong[wave == 1 & Institute_Abbreviation == "SJD" & Randomization_Group == "Control" & !Record_Id %in% eTlong[wave == 3]$Record_Id]$Record_Id
 
 
 ```
@@ -267,64 +204,6 @@ kable(sheetDT, caption = "Retention rates")
 ## Summaries 
 
 
-### First approximation 
-# outcomes <- c("phq_ads" = "phq9_0|gad7_", "phq9" = "phq9_0", "gad7" = "gad7_", "ptsd" = "pcl5_")
-# ST1 <- rbindlist(lapply(seq_along(outcomes), \(.x){
-# 				out <- names(outcomes)[.x]
-# 				Tlong[, .(outcome = out,
-# 					  avg = mean(.SD[[out]], na.rm = TRUE), 
-# 					  sd = sd(.SD[[out]], na.rm = TRUE),
-# 					  median = median(.SD[[out]], na.rm = TRUE),
-# 					  Q1 = quantile(.SD[[out]], probs = 0.25, na.rm = TRUE),
-# 					  Q3 = quantile(.SD[[out]], probs = 0.75, na.rm = TRUE),
-# 					  max = max(.SD[[out]], na.rm = TRUE),
-# 					  min = min(.SD[[out]], na.rm = TRUE), 
-# 					  lower = t.test(.SD[[out]])$conf.int[1], 
-# 					  upper = t.test(.SD[[out]])$conf.int[2],
-# 					  pval = t.test(.SD[[out]])$p.value,
-# 					  alpha = cronbachs_alpha(sapply(.SD[, -out, with = FALSE], \(.y) as.numeric(.y) - 1))), 
-# 			by = .(wave), 
-# 			.SDcols = patterns(paste0("^((",outcomes[.x],")\\d|", out,"$)"))]
-# }))
-# 
-# 
-# melt(dcast(ST1, outcome ~ wave, value.var = names(ST1[,-c("outcome", "wave")])),
-#      measure.vars = measure(coef = \(.x) factor(.x, levels = names(ST1[,-c("outcome", "wave")])), 
-# 			    value.name, pattern = "^([a-zA-Z0-9]+)_([1234])$"))[order(outcome, coef)]
-
-
-### Similar per institution or group 
-
-
-
-# eTlong[order(Randomization_Group, wave), .(avg_phq_ads = mean(phq_ads, na.rm = TRUE)), by = .(wave, Randomization_Group)]
-# 
-# eS1 <- eTlong[order(Institute_Abbreviation, Randomization_Group, wave), 
-# 	      unlist(lapply(.SD, \(.x) list(mean = mean(.x, na.rm = TRUE),
-# 					    sd = sd(.x, na.rm = TRUE),
-# 					    median = median(.x, na.rm = TRUE),
-# 					    Q1 = quantile(.x, probs = 0.25, na.rm = TRUE),
-# 					    Q3 = quantile(.x, probs = 0.75, na.rm = TRUE),
-# 					    max = max(.x, na.rm = TRUE),
-# 					    min = min(.x, na.rm = TRUE))), 
-# 		     rec = FALSE), 
-#               by = .(Institute_Abbreviation), .SDcols = c("phq_ads", "phq9", "gad7")]
-# 
-# melt(eS1, measure.vars = measure(outcome, value.name, pattern = "(^.*)\\.([a-zA-Z0-9]*)"))
-# 
-# eTlong[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c("phq_ads"), by = .(wave, Randomization_Group)] |> 
-# ggplot(aes(x = wave, y = phq_ads, colour = Randomization_Group)) +
-# 	geom_line()
-# 
-# na.omit(eTlong, cols = "phq_ads") |> 
-# ggplot(aes(x = factor(wave), y = phq_ads, colour = Randomization_Group)) +
-# 	stat_summary(aes(group = Randomization_Group), geom = "line", fun = mean) +
-# 	stat_summary(aes(group = Randomization_Group), geom = "point", fun = mean) +
-# 	stat_boxplot(geom = "errorbar", position = "identity", width = 0.25) +
-# 	labs(x = "time")
-
-
-
 ## Characteristics 
 
 NpwF <- eTlong[wave == 1, .(Overall = .N)]
@@ -340,7 +219,7 @@ Npw <- NpwF[NpwG, on = .(outcome, measure)]
 
 
 
-catOutcomes <- c("t0_soc_01", "t0_soc_12", "t0_soc_16", "t0_soc_17", "t0_soc_18", "to_soc_covid19", "t0_soc_site")
+catOutcomes <- c("t0_soc_01", "t0_soc_12", "t0_soc_16", "t0_soc_17", "t0_soc_18", "t0_soc_covid19")
 
 
 eT1F <- eTlong[wave == 1, .(m_age = mean(age, na.rm = TRUE), sd_age = sd(age, na.rm = TRUE))]
