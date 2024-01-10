@@ -5,18 +5,19 @@
 
 
 if(Sys.info()["sysname"] == "Linux"){
-	data_add <- paste0("/media/",
+	data_path <- paste0("/media/",
 			   system("whoami", intern = TRUE),
 			   "/",
 			   system(paste0("ls /media/",system("whoami", intern = TRUE)), intern = TRUE),
 			   "/PSSJD/RESPOND/data/source/")
-	data_add <- data_add[file.exists(data_add)]
+	data_path <- data_path[file.exists(data_path)]
+	dev_lib_path <- "~/R/x86_64-pc-linux-gnu-library/dev"
 } else if(Sys.info()["sysname"] == "Windows"){
-	data_add <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
-	data_add <- data_add[file.exists(data_add)]
-	data_add <- paste0(data_add, "/")
+	data_path <- paste0(grep("^[A-Z]:$", sub(":(.*)", ":",shell("wmic logicaldisk get name", intern = TRUE)), value = TRUE), "/PSSJD/RESPOND/data/source")
+	data_path <- data_path[file.exists(data_path)]
+	data_path <- paste0(data_path, "/")
+	dev_lib_path <- .libPaths()
 }
-
 
 
 #R! Libraries
@@ -24,7 +25,7 @@ if(Sys.info()["sysname"] == "Linux"){
 
 
 library(matrixStats)
-library(data.table)
+library(data.table, lib = dev_lib_path)
 library(openxlsx2)
 library(anytime)
 
@@ -38,8 +39,8 @@ AD <- c(0, 0.081, 0.128, 0.270, 0.348)
 
 #R! Metadata
 
-fields <- fread(paste0(data_add, "BcnMadCE/field_options.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
-items <- fread(paste0(data_add, "BcnMadCE/survey_variablelist.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
+fields <- fread(paste0(data_path, "BcnMadCE/field_options.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
+items <- fread(paste0(data_path, "BcnMadCE/survey_variablelist.csv"), encoding = "UTF-8", na.strings = c("NA", ""))
 
 
 
@@ -83,7 +84,7 @@ metadata <- rbind(metadata[!var %in% c("t0_soc_16", "t0_soc_17")],
 #R! REPICAL data loading
 
 
-dataW <- read_xlsx(paste0(data_add, 'REPICAL/BBDDRepical_pre.xlsx'))
+dataW <- read_xlsx(paste0(data_path, 'REPICAL/BBDDRepical_pre.xlsx'))
 setDT(dataW)
 
 #R! Pre-processing
@@ -102,7 +103,7 @@ setnames(dataL, \(.x) sub("^t1_(t[01])", "\\1", .x))
 
 
 
-#write_xlsx(dataL[order(wave, Record_ID)], paste0(data_add, "../target/REPICAL/BBDDRepical_long.xlsx"), na.strings = "")
+#write_xlsx(dataL[order(wave, Record_ID)], paste0(data_path, "../target/REPICAL/BBDDRepical_long.xlsx"), na.strings = "")
 
 
 setnames(dataL, \(.x) gsub("^(btq|phq9|passc|k10)_([123456789])$", "\\1_0\\2", .x))
@@ -115,7 +116,7 @@ setnames(dataL, "eq5d5l_6_1", "eq5d5l_6")
 #dataL[, (cols) := lapply(.SD, factor), .SDcols = cols]
 
 
-#write_xlsx(dataL[order(wave, Record_ID)], paste0(data_add, "../target/REPICAL/BBDDRepical_long_modifiedNames.xlsx"), na.strings = "")
+#write_xlsx(dataL[order(wave, Record_ID)], paste0(data_path, "../target/REPICAL/BBDDRepical_long_modifiedNames.xlsx"), na.strings = "")
 
 
 
@@ -161,4 +162,4 @@ for(var in names(val2name)){
 }
 
 
-save(dataL, file = paste0(data_add, "../target/REPICAL/REPICALdata.r"))
+save(dataL, file = paste0(data_path, "../target/REPICAL/REPICALdata.rdata"))
