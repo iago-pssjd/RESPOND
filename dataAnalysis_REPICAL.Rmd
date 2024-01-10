@@ -46,17 +46,17 @@ library(patchwork)
 library(grid)
 library(gridExtra)
 library(knitr)
-library(modelsummary)
 library(ggplot2)
-library(emmeans, lib.loc = dev_lib_path)
+library(emmeans)
 library(glmmTMB)
 library(lme4)
 library(openxlsx)
+library(data.table, lib.loc = dev_lib_path)
+library(modelsummary)
 library(multcomp)
 library(clubSandwich)
 library(nlme)
 library(matrixStats)
-library(data.table, lib.loc = dev_lib_path)
 
 # modelsummary auxiliar
 
@@ -77,7 +77,7 @@ glance_custom.glmmTMB <- function(x, ...){
 
 # Data loading 
 
-load(paste0(data_path, "../target/BcnMadCE/CEdata2.rdata"))
+load(paste0(data_path, "../target/REPICAL/REPICALdata.rdata"))
 
 # Data preparation  
 
@@ -278,6 +278,12 @@ CreateTableOne(vars = c("age", paste0("t0_soc_", c(formatC(c(1,12,16,17,18), fla
 
 
 ## Table 2
+
+```{r}
+
+CreateTableOne(vars = c("phq_ads", "phq9", "gad7", "ptsd", "phq9_depression", "gad7_anxiety"), includeNA = TRUE, strata = c("Randomization_Group", "wave"), data = eTlong, addOverall = FALSE, test = FALSE) |> kableone(showAllLevels = TRUE)
+```
+
 
 ```{r}
 
